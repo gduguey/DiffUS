@@ -1,4 +1,4 @@
-# DiffUS_DifferentiableUltrasoundfromMRI
+# DiffUS - Differentiable Ultrasound from MRI
 
 **Authors:** Gabriel Duguey & Noé Bertramo
 
@@ -7,7 +7,7 @@ The goal is to learn a differentiable forward model of ultrasound generation tha
 
 ---
 
-## File Naming Convention
+## File Naming Convention in the ReMIND2Reg dataset
 
 | File suffix       | Modality           | When acquired    | Purpose                          |
 |-------------------|--------------------|------------------|----------------------------------|
