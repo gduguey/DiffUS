@@ -1,0 +1,443 @@
+.DS_Store
+.pyc
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# PyInstaller
+#  Usually these files are written by a python script from a template
+#  before PyInstaller builds the exe, so as to inject date/other infos into it.
+*.manifest
+*.spec
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+cover/
+
+# Translations
+*.mo
+*.pot
+
+# Django stuff:
+*.log
+local_settings.py
+db.sqlite3
+db.sqlite3-journal
+
+# Flask stuff:
+instance/
+.webassets-cache
+
+# Scrapy stuff:
+.scrapy
+
+# Sphinx documentation
+docs/_build/
+
+# PyBuilder
+.pybuilder/
+target/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# IPython
+profile_default/
+ipython_config.py
+
+# pyenv
+#   For a library or package, you might want to ignore these files since the code is
+#   intended to run in multiple environments; otherwise, check them in:
+# .python-version
+
+# pipenv
+#   According to pypa/pipenv#598, it is recommended to include Pipfile.lock in version control.
+#   However, in case of collaboration, if having platform-specific dependencies or dependencies
+#   having no cross-platform support, pipenv may install dependencies that don't work, or not
+#   install all needed dependencies.
+#Pipfile.lock
+
+# UV
+#   Similar to Pipfile.lock, it is generally recommended to include uv.lock in version control.
+#   This is especially recommended for binary packages to ensure reproducibility, and is more
+#   commonly ignored for libraries.
+#uv.lock
+
+# poetry
+#   Similar to Pipfile.lock, it is generally recommended to include poetry.lock in version control.
+#   This is especially recommended for binary packages to ensure reproducibility, and is more
+#   commonly ignored for libraries.
+#   https://python-poetry.org/docs/basic-usage/#commit-your-poetrylock-file-to-version-control
+#poetry.lock
+
+# pdm
+#   Similar to Pipfile.lock, it is generally recommended to include pdm.lock in version control.
+#pdm.lock
+#   pdm stores project-wide configurations in .pdm.toml, but it is recommended to not include it
+#   in version control.
+#   https://pdm.fming.dev/latest/usage/project/#working-with-version-control
+.pdm.toml
+.pdm-python
+.pdm-build/
+
+# PEP 582; used by e.g. github.com/David-OConnor/pyflow and github.com/pdm-project/pdm
+__pypackages__/
+
+# Celery stuff
+celerybeat-schedule
+celerybeat.pid
+
+# SageMath parsed files
+*.sage.py
+
+# Environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Spyder project settings
+.spyderproject
+.spyproject
+
+# Rope project settings
+.ropeproject
+
+# mkdocs documentation
+/site
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Pyre type checker
+.pyre/
+
+# pytype static type analyzer
+.pytype/
+
+# Cython debug symbols
+cython_debug/
+
+# PyCharm
+#  JetBrains specific template is maintained in a separate JetBrains.gitignore that can
+#  be found at https://github.com/github/gitignore/blob/main/Global/JetBrains.gitignore
+#  and can be added to the global gitignore or merged into this file.  For a more nuclear
+#  option (not recommended) you can uncomment the following to ignore the entire idea folder.
+#.idea/
+
+# Ruff stuff:
+.ruff_cache/
+
+# PyPI configuration file
+.pypirc
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0000_0000.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0000_0001.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0001_0000.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0001_0001.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0002_0000.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0002_0001.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0003_0000.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0003_0001.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0003_0002.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0004_0000.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0004_0001.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0005_0000.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0005_0001.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0005_0002.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0006_0000.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0006_0001.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0006_0002.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0007_0000.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0007_0002.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0008_0000.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0008_0001.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0009_0000.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0009_0001.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0009_0002.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0010_0000.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0010_0001.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0010_0002.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0011_0000.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0011_0001.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0011_0002.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0012_0000.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0012_0002.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0013_0000.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0013_0001.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0013_0002.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0014_0000.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0014_0001.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0014_0002.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0015_0000.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0015_0001.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0015_0002.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0016_0000.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0016_0001.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0017_0000.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0017_0001.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0017_0002.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0018_0000.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0018_0001.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0018_0002.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0019_0000.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0019_0001.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0019_0002.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0020_0000.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0020_0001.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0021_0000.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0021_0001.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0021_0002.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0022_0000.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0022_0001.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0022_0002.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0023_0000.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0023_0001.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0023_0002.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0024_0000.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0024_0001.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0024_0002.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0025_0000.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0025_0001.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0025_0002.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0026_0000.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0026_0001.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0026_0002.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0027_0000.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0027_0001.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0027_0002.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0028_0000.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0028_0001.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0028_0002.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0029_0000.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0029_0001.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0030_0000.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0030_0001.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0030_0002.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0031_0000.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0031_0001.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0031_0002.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0032_0000.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0032_0001.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0032_0002.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0033_0000.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0033_0001.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0033_0002.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0034_0000.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0034_0001.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0035_0000.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0035_0001.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0035_0002.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0036_0000.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0036_0001.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0037_0000.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0037_0001.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0038_0000.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0038_0001.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0038_0002.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0039_0000.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0039_0001.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0039_0002.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0040_0000.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0040_0001.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0040_0002.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0041_0000.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0041_0001.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0042_0000.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0042_0001.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0043_0000.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0043_0001.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0043_0002.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0044_0000.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0044_0001.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0044_0002.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0045_0000.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0045_0001.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0045_0002.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0046_0000.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0046_0001.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0047_0000.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0047_0001.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0047_0002.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0048_0000.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0048_0001.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0048_0002.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0049_0000.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0049_0002.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0050_0000.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0050_0001.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0050_0002.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0051_0000.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0051_0001.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0052_0000.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0052_0001.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0052_0002.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0053_0000.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0053_0001.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0053_0002.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0054_0000.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0054_0001.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0054_0002.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0055_0000.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0055_0001.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0056_0000.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0056_0001.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0056_0002.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0057_0000.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0057_0001.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0058_0000.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0058_0001.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0058_0002.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0059_0000.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0059_0001.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0060_0000.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0060_0001.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0061_0000.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0061_0001.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0062_0000.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0062_0001.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0063_0000.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0063_0001.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0063_0002.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0064_0000.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0064_0001.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0064_0002.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0065_0000.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0065_0001.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0066_0000.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0066_0001.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0066_0002.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0067_0000.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0067_0001.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0068_0000.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0068_0001.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0069_0000.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0069_0001.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0070_0000.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0070_0001.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0070_0002.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0071_0000.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0071_0001.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0071_0002.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0072_0000.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0072_0001.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0073_0000.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0073_0001.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0074_0000.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0074_0001.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0075_0000.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0075_0001.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0076_0000.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0076_0001.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0077_0000.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0077_0001.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0077_0002.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0078_0000.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0078_0001.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0078_0002.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0079_0000.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0079_0002.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0080_0000.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0080_0001.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0080_0002.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0081_0000.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0081_0001.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0082_0000.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0082_0001.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0082_0002.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0083_0000.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0083_0001.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0083_0002.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0084_0000.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0084_0001.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0084_0002.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0085_0000.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0085_0001.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0085_0002.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0086_0000.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0086_0002.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0087_0000.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0087_0001.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0088_0000.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0088_0001.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0089_0000.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0089_0001.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0090_0000.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0090_0001.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0090_0002.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0091_0000.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0091_0001.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0091_0002.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0092_0000.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0092_0001.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0093_0000.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0093_0002.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0094_0000.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0094_0001.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0094_0002.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0095_0000.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0095_0001.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0096_0000.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0096_0001.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0096_0002.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0097_0000.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0097_0001.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0098_0000.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0098_0001.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0098_0002.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0099_0000.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0099_0001.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0099_0002.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0100_0000.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0100_0001.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0100_0002.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0101_0000.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0101_0001.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0101_0002.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0102_0000.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0102_0001.nii.gz
+ReMIND2Reg_dataset/imagesTr/ReMIND2Reg_0102_0002.nii.gz
