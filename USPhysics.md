@@ -134,3 +134,16 @@ Where \( v \) is the velocity of blood and \( \theta \) is the angle between the
 ## MRI
 
 will need to fill in 
+
+# Sources
+
+https://www.acep.org/sonoguide/basic/ultrasound-physics-and-technical-facts-for-the-beginner
+
+https://journals.lww.com/onlinejets/fulltext/2011/04040/clinical_ultrasound_physics.13.aspx
+
+https://www.youtube.com/watch?v=s23_d-qeEn4
+
+https://arxiv.org/pdf/2501.05828
+
+https://www.fit.vut.cz/study/thesis-file/24884/24884.pdf
+
