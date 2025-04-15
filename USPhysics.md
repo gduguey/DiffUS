@@ -23,8 +23,8 @@ Z = \rho c
 $$
 
 Where:
-- $ \rho $ is the tissue density in $ \text{kg/m}^3 $,
-- $ c $ is the speed of sound in that medium.
+- $\rho$ is the tissue density in $\text{kg/m}^3$,
+- $c$ is the speed of sound in that medium.
 
 ### Assumptions
 For successful reconstruction of tissue structure, the following assumptions are made:
@@ -39,7 +39,7 @@ Most assumptions are reasonable. For example:
 - (A), (C), and (E) follow from controlled probe design and beam focusing.
 - (B) is supported by measurements showing that most soft tissues (excluding bone and air) have similar sound speeds, typically around 1540 m/s (Duck, 1990).
 
-Given these assumptions, if a pulse is emitted at time $ t_1 $ and an echo is received at time $ t_2 $, then the estimated depth $ d $ of the reflecting interface is:
+Given these assumptions, if a pulse is emitted at time $t_1$ and an echo is received at time $t_2$, then the estimated depth $d$ of the reflecting interface is:
 
 $$
 d = \frac{c}{2} \times (t_2 - t_1)
@@ -62,14 +62,14 @@ The table below represents some values of bodily acoustic impedance
 
 _Table of acoustic values (Hoskins, ?)_
 
-Apart from bones, most bodily tissues seem to share similar values of Impedance around $1.6 \times 10^6 $.
+Apart from bones, most bodily tissues seem to share similar values of Impedance around $1.6 \times 10^6$.
 
 ![waves](img/waves.png)
 
 To detect reflected waves, a change in medium (i.e., a discontinuity in impedance) is required. When a wave encounters such a boundary, the following conditions hold:
 
 - The pressure and particle velocity must be continuous across the boundary.
-- Assuming the same speed of sound across the boundary, the reflected pressure $ p_r $ relates to the incident pressure $p_i$ by:
+- Assuming the same speed of sound across the boundary, the reflected pressure $p_r$ relates to the incident pressure $p_i$ by:
 
 $$
 \frac{p_r}{p_i} = \frac{Z_2 - Z_1}{Z_1 + Z_2}
@@ -82,8 +82,8 @@ $$
 $$
 
 Where:
-- $ Z_1, Z_2 $ are the acoustic impedances of the first and second media,
-- $ I_i $, $ I_r $, $ I_t $ are the incident, reflected, and transmitted wave intensities.
+- $Z_1, Z_2$ are the acoustic impedances of the first and second media,
+- $I_i$, $I_r$, $I_t$ are the incident, reflected, and transmitted wave intensities.
 - $R_a$ is the reflection coefficient of the physical component.
 
 
@@ -92,7 +92,7 @@ Where:
 Let's look again at a pulse. Upon arrival at a frontier, two coefficients $R_p$ and $T_p$, signalling reflection and transmission, are necessary to understand what is going on in detail. However, from the point of view of the transducer, the protocol is the following:
 
 The transducer works as follows:
-- Emits a short US pulse at a frequency \( f \),
+- Emits a short US pulse at a frequency $f$,
 - for a time of $T$, listen to returned echoes:
     - Note arrival of waves at $t_1,t_2,...t_k$ and their amplitude $a_1,a_2,...,a_k$
     - For each $t_i$, compute existing distance $d_i=\frac{c}{2}\times t_i$
@@ -121,13 +121,13 @@ M-mode (motion mode) captures a single scan line over time. It is ideal for visu
 
 ### Doppler Imaging
 
-Doppler ultrasound is used to measure blood flow velocity using the Doppler effect. The frequency shift \( \Delta f \) between emitted and received signals reflects the relative motion of red blood cells:
+Doppler ultrasound is used to measure blood flow velocity using the Doppler effect. The frequency shift $\Delta f$ between emitted and received signals reflects the relative motion of red blood cells:
 
 $$
 \Delta f \propto v \cos(\theta)
 $$
 
-Where \( v \) is the velocity of blood and \( \theta \) is the angle between the beam and the flow direction.
+Where $v$ is the velocity of blood and $\theta$ is the angle between the beam and the flow direction.
 
 ---
 
