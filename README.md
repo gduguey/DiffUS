@@ -1,6 +1,12 @@
 # DiffUS - Differentiable Ultrasound from MRI
 
-**Authors:** Gabriel Duguey & Noé Bertramo
+**Authors:** Noé Bertramo, Gabriel Duguey  
+**Institution:** Massachusetts Institute of Technology (MIT)  
+**Date:** Spring 2025  
+**Dataset:** [ReMIND2Reg](https://doi.org/10.7937/3RAG-D070)  
+**Keywords:** Fast Differentiable Simulation · Ultrasound Imaging · MRI · Registration · Alignement
+
+---
 
 This project investigates the **differentiable simulation of 2D ultrasound images from 3D MRI volumes** by modeling wave propagation through soft tissues.  
 The goal is to learn a differentiable forward model of ultrasound generation that allows **training on paired MRI/US data** to eventually **recover the source position** or other acquisition parameters through backpropagation.
