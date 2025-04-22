@@ -7,6 +7,7 @@ import plotly.io as pio
 import nibabel as nib
 import torch
 from torch.utils.data import Dataset
+import torchio as tio
 import numpy as np
 
 pio.renderers.default = 'browser'
@@ -61,32 +62,112 @@ class MedicalVolumeDataset(Dataset):
 
         orientation = {0: 'axial', 1: 'coronal', 2: 'sagittal'}.get(axis, 'unknown')
         if plot:
-            plt.imshow(img.numpy(), cmap='coolwarm')
+            plt.imshow(img.numpy(), cmap='gray')
             plt.title(f"Slice {slice_id} of {self.name}, orientation {orientation}")
             plt.colorbar()
             plt.axis("off")
             plt.show()
 
-class MRIDataset(MedicalVolumeDataset):
-    def __init__(self, path, name="MRI", axis=0, dtype=torch.float32):
-        super().__init__(path, name, axis, dtype)
+class MRIDataset(Dataset):
+    def __init__(self, paths, name="MRI", axis=0, dtype=torch.float32):
+        self.name = name
+        self.axis = axis
+        self.dtype = dtype
+        self.subjects = [
+            tio.Subject({name: tio.ScalarImage(path)}) for path in paths
+        ]
+        self.dataset = tio.SubjectsDataset(self.subjects)
 
-    def plot3D(self, threshold=0.2):
-        volume = (self.data - self.data.min()) / (self.data.max() - self.data.min())
-        volume_np = volume.numpy()
-        
+    def __len__(self):
+        return len(self.dataset)
+    
+    def __getitem__(self, idx):
+        subject = self.dataset[idx]
+        image_tensor = subject[self.name].data
+        affine = subject[self.name].affine
+        spacing = subject[self.name].spacing
+        return {
+            'image': image_tensor,
+            'affine': affine,
+            'spacing': spacing,
+            'path': subject[self.name].path
+        }
+    
+    def plot3D(self, threshold=0.2, idx=0):
+        sample = self[idx]
+        if sample is None:
+            print("Cannot plot: sample is None.")
+            return
+
+        volume = sample['image'].squeeze(0)  # remove channel dim: (D, H, W)
+        volume = (volume - volume.min()) / (volume.max() - volume.min())
+        volume_np = volume.cpu().numpy()
+
+        D, H, W = volume_np.shape
+        x, y, z = np.meshgrid(np.arange(W), np.arange(H), np.arange(D), indexing='ij')
+
         fig = go.Figure(data=go.Isosurface(
-            x=np.arange(volume_np.shape[0]).repeat(volume_np.shape[1]*volume_np.shape[2]),
-            y=np.tile(np.arange(volume_np.shape[1]).repeat(volume_np.shape[2]), volume_np.shape[0]),
-            z=np.tile(np.arange(volume_np.shape[2]), volume_np.shape[0]*volume_np.shape[1]),
+            x=x.flatten(),
+            y=y.flatten(),
+            z=z.flatten(),
             value=volume_np.flatten(),
-            isomin=0.4,
+            isomin=threshold,
             isomax=1.0,
             opacity=0.1,
             surface_count=2,
-            caps=dict(x_show=False, y_show=False)
+            caps=dict(x_show=False, y_show=False, z_show=False)
         ))
 
+        fig.update_layout(scene=dict(aspectmode='data'))
+        fig.show()
+    
+    def plot2D(self, idx=0, slice_id=0, axis=None, plot=True):
+        sample = self[idx]
+        if sample is None:
+            print("Cannot plot: sample is None.")
+            return
+
+        axis = self.axis if axis is None else axis
+        volume = sample['image'].squeeze(0)  # shape: (D, H, W)
+
+        if axis == 0:
+            img = volume[slice_id, :, :]
+        elif axis == 1:
+            img = volume[:, slice_id, :]
+        elif axis == 2:
+            img = volume[:, :, slice_id]
+        else:
+            raise ValueError("Axis must be 0 (axial), 1 (coronal), or 2 (sagittal).")
+
+        orientation = {0: 'axial', 1: 'coronal', 2: 'sagittal'}.get(axis, 'unknown')
+        
+        if plot:
+            plt.imshow(img.numpy(), cmap='gray')
+            plt.title(f"{self.name} - Slice {slice_id} ({orientation})")
+            plt.axis("off")
+            plt.colorbar()
+            plt.show()
+
+        return img
+
+    def plot_voxels(self, idx=0, threshold=0.5):
+        sample = self[idx]
+        volume = sample['image'].squeeze(0)  # (D, H, W)
+        volume = (volume - volume.min()) / (volume.max() - volume.min())
+        binary_volume = (volume > threshold).cpu().numpy()
+
+        D, H, W = binary_volume.shape
+        x, y, z = np.nonzero(binary_volume)
+
+        fig = go.Figure(data=go.Scatter3d(
+            x=z, y=y, z=x,  # note: numpy axis ordering
+            mode='markers',
+            marker=dict(
+                size=2,
+                color='blue',
+                opacity=0.2,
+            )
+        ))
         fig.update_layout(scene=dict(aspectmode='data'))
         fig.show()
 
