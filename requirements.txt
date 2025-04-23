@@ -1,0 +1,8 @@
+jax[cpu]
+matplotlib
+plotly
+nibabel
+SimpleITK
+torch>=2.0.0
+torchio
+numpy
