@@ -332,8 +332,7 @@ class UltrasoundRenderer:
         plt.show()
 
     
-
-
+# UTILITIES
 
 def propagate_full_ray(refLR):
     '''
