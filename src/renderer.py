@@ -1,4 +1,6 @@
 import time
+
+from tqdm import tqdm
 import torch
 import torch.nn.functional as F
 import matplotlib.pyplot as plt
@@ -21,8 +23,7 @@ class UltrasoundRenderer:
         Compute power reflection coefficient between two impedances.
         R = ((Z2 - Z1)/(Z2 + Z1))**2
         """
-        return ((Z2 - Z1) / (Z2 + Z1)).pow(2)
-        # return np.abs(Z2 - Z1) / (Z1+Z2)
+        return (Z2 - Z1) / (Z1+Z2)
 
     
 
@@ -146,7 +147,7 @@ class UltrasoundRenderer:
         """
         all_profiles = []
         for src in sources:
-            profile = self.trace_ray(volume, src, direction, num_samples)
+            profile = self.trace_ray(volume, src, directions, num_samples)
             all_profiles.append(profile)
         return torch.stack(all_profiles)  # (N, num_samples)
 
@@ -173,9 +174,20 @@ class UltrasoundRenderer:
             directions=directions
         )
 
+        # attenuation!
+        attenuation_coeff = 0.0001
+        depths = torch.arange(self.num_samples, device=R.device).float()
+        attenuation = torch.exp(-attenuation_coeff * depths)  # shape (num_samples,)
+
+        processed_output = []
+        for i in tqdm(range(R.shape[0]), desc="Processing rays"): 
+            processed_output.append(propagate_full_ray(R[i:i+1,:])[::2] * attenuation)
+        
+        processed_output = torch.stack(processed_output, dim=0)
+        processed_output = processed_output.detach().cpu().numpy()
+        
         # 2. Convert to numpy
-        frame_np = R.detach().cpu().numpy()  # shape (N_rays, num_samples-1)
-        n_rays, n_samples = frame_np.shape
+        n_rays, n_samples = processed_output.shape
 
         # 3. Compute ray geometry
         source_2d = np.array([128, 0])  # (x, z), assuming 2D fan centered at (128, 0)
@@ -198,7 +210,7 @@ class UltrasoundRenderer:
 
         x_coords = points[..., 0].flatten()
         z_coords = points[..., 1].flatten()
-        intensities = frame_np.flatten()
+        intensities = processed_output.flatten()
 
         # 4. Plot
         plt.figure(figsize=(6, 6))
@@ -323,3 +335,53 @@ class UltrasoundRenderer:
 
 
 
+def propagate_full_ray(refLR):
+    '''
+    Propagate the full ray through the medium using the reflection and transmission coefficients.
+    The function assumes that the input is a 1D tensor with shape (1, N), where N is the number of boundaries.
+    We propagate using matrix invesion, large N is not recommended.
+
+    The function returns a 2D tensor with shape (2, N), where the first row is the value of left to right ray and the second row is right to left ray.
+    '''
+    
+    N = refLR.shape[1]
+    traLR = 1 + refLR
+    traRL = 1 - refLR
+    refRL = - refLR
+
+    matrix = torch.zeros(2*(N+1),2*(N+1), dtype=torch.float32)
+    b = torch.zeros(2*(N+1), dtype=torch.float32)
+
+    # BOUNDARY CONDITIONS
+    b[0] = 1 # left to right ray
+    b[1] = 0 # right to left ray
+
+    matrix[0, 0] = 1 # left to right ray
+    matrix[-1, -1] = 1 # right to left ray
+
+    # coupled system:
+    # g2 = t12 * g1 - r * d2
+    # d1 = r * g2 + t21 * d1
+    # need to add equation for every step
+    for i in range(N):
+        # loop through computing all boundaries
+        gi = 2*i
+        di = 2*i + 1
+        gip1 = 2*(i+1)
+        dip1 = 2*(i+1) + 1
+
+        # build gip1
+        matrix[gip1, gi] = - traLR[0, i-1]
+        matrix[gip1, dip1] = refLR[0, i-1]
+        matrix[gip1, gip1] = 1
+
+        # build dip1
+        matrix[di, gi] = - refRL[0, i-1]
+        matrix[di, dip1] = - traRL[0, i-1]
+        matrix[di, di] = 1
+    
+    w = torch.linalg.solve(matrix, b)
+    
+    return w
+    
+# output = propagate_full_ray(ReflectionLR)
