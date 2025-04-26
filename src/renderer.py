@@ -1,8 +1,10 @@
+import time
 import torch
 import torch.nn.functional as F
 import matplotlib.pyplot as plt
 import numpy as np
 import scipy.signal as ss
+import warnings
 
 class UltrasoundRenderer:
     def __init__(self, num_samples: int, attenuation_coeff: float = 0.5):
@@ -19,43 +21,55 @@ class UltrasoundRenderer:
         Compute power reflection coefficient between two impedances.
         R = ((Z2 - Z1)/(Z2 + Z1))**2
         """
-        # return ((Z2 - Z1) / (Z2 + Z1)).pow(2)
-        return np.abs(Z2 - Z1)
+        return ((Z2 - Z1) / (Z2 + Z1)).pow(2)
+        # return np.abs(Z2 - Z1) / (Z1+Z2)
 
-    def simulate_ray(self,
-                     volume: torch.Tensor,
-                     source: torch.Tensor,
-                     direction: torch.Tensor) -> torch.Tensor:
+    
+
+    def simulate_rays(self,
+        volume: torch.Tensor, 
+        source: torch.Tensor, 
+        directions: torch.Tensor, 
+        num_samples: int = 0) -> torch.Tensor:
         """
-        Simulate one A line:
-        - volume: (D,H,W) tensor of impedances
-        - source: (3,) starting point in voxel coords (x,y,z)
-        - direction: (3,) normalized direction vector
-        Returns a (num_samples - 1,) tensor of echo intensities.
+        Simulates a single ray tracing through a 3D volume using batched grid_sample.
+        
+        Args:
+            volume: (D, H, W) Tensor of acoustic properties (e.g., normalized impedance)
+            source: (3,) Tensor for the starting point of the ray
+            direction: (n_rays,3,) Tensor for the ray directions (must be a unit vector) If a unique direction is given, it can be of shape (3,)
+            num_samples: int, number of steps along the ray
+            
+        Returns:
+            R: (num_samples-1) Tensor of reflection coefficients along the ray
         """
-        # sample impedances along the ray
-        impedances = self.trace_ray(volume, source, direction, self.num_samples)  # (num_samples,)
-        # compute R at each interface
-        Z1, Z2 = impedances[:-1], impedances[1:]
-        R = self.compute_reflection_coeff(Z1, Z2)  # (num_samples - 1,)
+        if num_samples == 0:
+            num_samples = self.num_samples
+                
+        impedances =  self.trace_ray(
+            volume=volume, 
+            source=source, 
+            directions=directions, 
+            num_samples=num_samples)
+        if impedances.ndim == 1:
+            impedances = impedances.unsqueeze(0)
+        Z1 = impedances[:, :-1]  # (num_samples-1)
+        Z2 = impedances[:, 1:]   # (num_samples-1)
 
-        # attenuation proportional to exp(-alpha * depth). depth index starts at 1
-        # depths = torch.arange(1, self.num_samples, dtype=impedances.dtype)
-        # attenuation = torch.exp(-self.attenuation_coeff * depths)
-
-        # echo intensity profile
-        # return R * attenuation  # (num_samples - 1,)
-        return R
+        R = self.compute_reflection_coeff(Z1, Z2)
+        return R.squeeze(0) 
 
     def simulate_frame(self,
                        volume: torch.Tensor,
                        source: torch.Tensor,
                        directions: torch.Tensor) -> torch.Tensor:
         """
+        # DEPRECATED
         Simulate a full ultrasound frame.
         - directions: (N_rays, 3) each row a unit vector
         Returns: (N_rays, num_samples - 1) intensity map
         """
+        warnings.warn("This function is deprecated. Use simulate_rays instead, it can parse a batch of directions.")
         return torch.stack([
             self.simulate_ray(volume, source, d)
             for d in directions
@@ -63,52 +77,61 @@ class UltrasoundRenderer:
     
     @staticmethod
     def trace_ray(
-        volume: torch.Tensor,
-        source: torch.Tensor,
-        direction: torch.Tensor,
-        num_samples: int
-    ) -> torch.Tensor:
+                volume: torch.Tensor, 
+                source: torch.Tensor, 
+                directions: torch.Tensor, 
+                num_samples: int) -> torch.Tensor:
         """
-        Trace a ray through a 3D volume and sample intensity values.
-
+        Simulates ray tracing through a 3D volume using batched grid_sample.
+        
         Args:
-            volume (torch.Tensor): 3D volume of shape (D, H, W).
-            source (torch.Tensor): Starting point of the ray (x, y, z).
-            direction (torch.Tensor): Direction of the ray (dx, dy, dz).
-            num_samples (int): Number of samples to take along the ray.
-
+            volume: (D, H, W) Tensor of acoustic properties (e.g., normalized impedance)
+            source: (3,) Tensor for the starting point of rays
+            directions: (N_rays, 3) Tensor of ray directions (must be unit vectors)
+            num_samples: int, number of steps along each ray
+            
         Returns:
-            torch.Tensor: Sampled intensity values along the ray.
+            R: (N_rays, num_samples-1) Tensor of reflection coefficients along each ray
         """
-        # Get volume dimensions      
+        # housekeeping
+        if directions.ndim == 1:
+            directions = directions.unsqueeze(0)
+        
+        Z = (volume - volume.min()) / (volume.max() - volume.min())
+        Z = Z * (1.7e6 - 1.4e6) + 1.4e6
 
-        volume = (volume - volume.min()) / (volume.max() - volume.min())
         D, H, W = volume.shape
-        Z = volume * (1.7e6 - 1.4e6) + 1.4e6
+        
+        # Prepare steps and directions
+        steps = torch.arange(0, num_samples, dtype=torch.float32, device=volume.device).view(1, -1, 1)  # (1, num_samples, 1)
+        directions = directions.unsqueeze(1)  # (N_rays, 1, 3)
 
-        # Normalize direction
-        direction = direction / direction.norm()
+        # Trace points
+        points = source + steps * directions 
 
-        # Compute points along the ray
-        steps = torch.arange(0, num_samples, dtype=torch.float32).unsqueeze(1)
-        points = source + steps * direction  # (num_samples, 3)
+        grid = torch.empty_like(points, dtype=torch.float32)
+        
+        grid[..., 0] = 2 * (points[..., 2] / max(D - 1, 1)) - 1  # z → x
+        grid[..., 1] = 2 * (points[..., 1] / max(H - 1, 1)) - 1  # y → y
+        grid[..., 2] = 2 * (points[..., 0] / max(W - 1, 1)) - 1  # x → z
 
-        # Normalize to [-1, 1] for grid_sample
-        grid = torch.empty_like(points)
-        grid[:, 0] = 2 * (points[:, 2] / max(D - 1, 1)) - 1  # z → x
-        grid[:, 1] = 2 * (points[:, 1] / max(H - 1, 1)) - 1  # y → y
-        grid[:, 2] = 2 * (points[:, 0] / max(W - 1, 1)) - 1  # x → z
-        grid = grid.view(1, num_samples, 1, 1, 3)  # (N, D_out, H_out, W_out, 3)
+        # Reshape for grid_sample
+        grid = grid.view(-1, num_samples, 1, 1, 3) 
 
-        # Prepare volume for grid_sample: (N, C, D, H, W)
-        Z = Z.unsqueeze(0).unsqueeze(0)  # (1, 1, D, H, W)
+        sampler = Z.unsqueeze(0).unsqueeze(0)
+        sampler = sampler.expand(grid.shape[0], -1, -1, -1, -1)
 
-        # Sample
-        ray_values = F.grid_sample(Z, grid, align_corners=True, mode='bilinear').squeeze()
+        ray_values = F.grid_sample(
+            sampler,
+            grid,
+            mode='bilinear',
+            padding_mode='border',
+            align_corners=True,
+        ).squeeze()
 
-        return ray_values # (num_samples,)
+        return ray_values
     
-    def trace_rays(self, volume, sources, direction, num_samples):
+    def trace_rays(self, volume, sources, directions, num_samples):
         """
         Trace multiple rays from a set of sources in the same direction.
 
@@ -127,6 +150,66 @@ class UltrasoundRenderer:
             all_profiles.append(profile)
         return torch.stack(all_profiles)  # (N, num_samples)
 
+    def plot_beam_frame(
+        self,
+        volume: torch.Tensor,
+        source: torch.Tensor,
+        directions: torch.Tensor,
+        angle: float = 45.0,
+    ):
+        """
+        Simulates rays and plots the resulting ultrasound fan frame.
+        
+        Args:
+            volume: (D, H, W) Tensor, ultrasound volume (acoustic impedance)
+            source: (3,) Tensor, starting position of rays
+            directions: (N_rays, 3) Tensor of ray directions (unit vectors)
+            angle: fan angle (degrees), used for plotting geometry
+        """
+        # 1. Simulate reflection coefficients
+        R = self.simulate_rays(
+            volume=volume,
+            source=source,
+            directions=directions
+        )
+
+        # 2. Convert to numpy
+        frame_np = R.detach().cpu().numpy()  # shape (N_rays, num_samples-1)
+        n_rays, n_samples = frame_np.shape
+
+        # 3. Compute ray geometry
+        source_2d = np.array([128, 0])  # (x, z), assuming 2D fan centered at (128, 0)
+        thetas = np.radians(np.linspace(-angle, angle, n_rays))  # shape (n_rays,)
+        ray_len = n_samples  # number of points along each ray
+
+        # Vectorized generation of all points
+        steps = np.arange(ray_len)  # (n_samples,)
+
+        directions_xz = np.stack([
+            np.sin(thetas),   # (n_rays,)
+            np.cos(thetas)    # (n_rays,)
+        ], axis=1)  # (n_rays, 2)
+
+        # Expand dimensions
+        steps = steps[None, :, None]              # (1, n_samples, 1)
+        directions_xz = directions_xz[:, None, :]  # (n_rays, 1, 2)
+
+        points = source_2d[None, None, :] + steps * directions_xz  # (n_rays, n_samples, 2)
+
+        x_coords = points[..., 0].flatten()
+        z_coords = points[..., 1].flatten()
+        intensities = frame_np.flatten()
+
+        # 4. Plot
+        plt.figure(figsize=(6, 6))
+        plt.rcParams['axes.facecolor'] = 'black'
+        plt.scatter(x_coords, z_coords, c=intensities, cmap='gray', s=1)
+        plt.gca().set_aspect('equal')
+        plt.xlabel("X")
+        plt.ylabel("Z")
+        plt.title("Fan-shaped Ultrasound Frame")
+        plt.colorbar(label="Intensity")
+        plt.show()
 
     @staticmethod
     def plot_frame(frame: torch.Tensor):
