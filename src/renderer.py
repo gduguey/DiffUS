@@ -223,6 +223,7 @@ class UltrasoundRenderer:
         plt.colorbar(label="Intensity")
         plt.show()
 
+        # 4. 
         return intensities
 
     @staticmethod
