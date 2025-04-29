@@ -223,6 +223,8 @@ class UltrasoundRenderer:
         plt.colorbar(label="Intensity")
         plt.show()
 
+        return intensities
+
     @staticmethod
     def plot_frame(frame: torch.Tensor):
         """
