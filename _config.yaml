@@ -10,6 +10,8 @@ author:
 
 # Build settings
 markdown: kramdown
+kramdown:
+  math_engine: mathjax
 highlighter: rouge
 
 # Include these files in the build
