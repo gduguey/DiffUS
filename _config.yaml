@@ -14,7 +14,9 @@ highlighter: rouge
 
 # Include these files in the build
 include:
-  - _pages
+  - _pages # faudra tout mettre dedans
+  - USPhysics
+  - forward_physics
 
 # Plugins (optional but helpful)
 plugins:
