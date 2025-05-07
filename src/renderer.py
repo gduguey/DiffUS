@@ -3,6 +3,7 @@ import time
 from tqdm import tqdm
 import torch
 import torch.nn.functional as F
+from scipy.interpolate import griddata
 import matplotlib.pyplot as plt
 import numpy as np
 import scipy.signal as ss
@@ -31,7 +32,8 @@ class UltrasoundRenderer:
         volume: torch.Tensor, 
         source: torch.Tensor, 
         directions: torch.Tensor, 
-        num_samples: int = 0) -> torch.Tensor:
+        num_samples: int = 0,
+        MRI:bool=False) -> torch.Tensor:
         """
         Simulates a single ray tracing through a 3D volume using batched grid_sample.
         
@@ -58,6 +60,8 @@ class UltrasoundRenderer:
         Z2 = impedances[:, 1:]   # (num_samples-1)
 
         R = self.compute_reflection_coeff(Z1, Z2)
+        if MRI:
+            return Z1
         return R.squeeze(0) 
 
     def simulate_frame(self,
@@ -157,6 +161,8 @@ class UltrasoundRenderer:
         source: torch.Tensor,
         directions: torch.Tensor,
         angle: float = 45.0,
+        plot: bool = True,
+        MRI : bool = False,
     ):
         """
         Simulates rays and plots the resulting ultrasound fan frame.
@@ -171,21 +177,26 @@ class UltrasoundRenderer:
         R = self.simulate_rays(
             volume=volume,
             source=source,
-            directions=directions
+            directions=directions,
+            MRI=MRI,
         )
 
         # attenuation!
         attenuation_coeff = 0.0001
         depths = torch.arange(self.num_samples, device=R.device).float()
         attenuation = torch.exp(-attenuation_coeff * depths)  # shape (num_samples,)
+        if not MRI:
+            processed_output = propagate_full_rays_batched(R)[:, ::2] * attenuation  # (N_rays, num_samples-1, 2*(num_samples-1))
+        else:
+            print("MRI Plot so less processing")
+            processed_output = R
+        if not plot:
+            return processed_output
 
-        processed_output = []
-        for i in tqdm(range(R.shape[0]), desc="Processing rays"): 
-            processed_output.append(propagate_full_ray(R[i:i+1,:])[::2] * attenuation)
-        
-        processed_output = torch.stack(processed_output, dim=0)
+        processed_output_torch = processed_output.clone()        
         processed_output = processed_output.detach().cpu().numpy()
-        
+
+        # proceed only if requires plotting
         # 2. Convert to numpy
         n_rays, n_samples = processed_output.shape
 
@@ -213,6 +224,7 @@ class UltrasoundRenderer:
         intensities = processed_output.flatten()
 
         # 4. Plot
+        
         plt.figure(figsize=(6, 6))
         plt.rcParams['axes.facecolor'] = 'black'
         plt.scatter(x_coords, z_coords, c=intensities, cmap='gray', s=1)
@@ -224,7 +236,7 @@ class UltrasoundRenderer:
         plt.show()
 
         # 4. 
-        return intensities
+        return processed_output_torch
 
     @staticmethod
     def plot_frame(frame: torch.Tensor):
@@ -385,5 +397,74 @@ def propagate_full_ray(refLR):
     w = torch.linalg.solve(matrix, b)
     
     return w
+
+def propagate_full_rays_batched(refLR):
+    """
+    Vectorized version of propagate_full_ray for a batch of rays.
+    Input:
+        refLR: Tensor of shape (B, N) with reflection coefficients for B rays
+    Output:
+        w_all: Tensor of shape (B, 2*(N+1)) containing [g0, d0, ..., gN, dN] for each ray
     
-# output = propagate_full_ray(ReflectionLR)
+    Batcehd version of the function to propagate the full ray through the medium using the reflection and transmission coefficients. Coupled steps of the function above.
+    """
+    B, N = refLR.shape
+    traLR = 1 + refLR
+    traRL = 1 - refLR
+    refRL = -refLR
+
+    size = 2*(N+1)
+    w_all = torch.zeros((B, size, size), dtype=torch.float32)
+    b = torch.zeros((B, size), dtype=torch.float32)
+    b[:,0] = 1
+    w_all[:, 0, 0] = 1
+    w_all[:, -1, -1] = 1
+
+    for iDepth in range(N):
+        
+        gi = 2*iDepth
+        di = 2*iDepth + 1
+        gip1 = 2*(iDepth+1)
+        dip1 = 2*(iDepth+1) + 1
+        # build gip1
+        w_all[:, gip1, gi] = - traLR[:, iDepth-1]
+        w_all[:, gip1, dip1] = refLR[:, iDepth-1]
+        w_all[:, gip1, gip1] = 1
+
+        # build dip1
+        w_all[:, di, gi] = - refRL[:, iDepth-1]
+        w_all[:, di, dip1] = - traRL[:, iDepth-1]
+        w_all[:, di, di] = 1
+    
+    
+    w_all = torch.linalg.solve(w_all, b)  # shape (B, 2*(N+1))
+    return w_all
+
+def rasterize_fan(x_coords, z_coords, intensities, output_shape=(256, 256)):
+    """
+    Converts scatter plot data into a 2D image array via interpolation.
+    
+    Args:
+        x_coords, z_coords: 1D arrays of coordinates
+        intensities: 1D array of intensities at those points
+        output_shape: desired shape of the image (H, W)
+        
+    Returns:
+        2D numpy array of shape (H, W)
+    """
+    x_coords = np.asarray(x_coords)
+    z_coords = np.asarray(z_coords)
+    intensities = np.asarray(intensities)
+
+    # Create grid
+    grid_x, grid_z = np.meshgrid(x_coords, z_coords)
+
+    # Interpolate intensities onto the grid
+    img = griddata(
+        points=np.stack((x_coords, z_coords), axis=-1),
+        values=intensities,
+        xi=(grid_x, grid_z),
+        method='linear',
+        fill_value=0  # or np.nan
+    )
+    return img
