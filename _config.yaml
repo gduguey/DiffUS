@@ -1,0 +1,34 @@
+# _config.yml
+
+# Theme
+theme: minima
+
+# Author details
+author:
+  name: "Noé Bertramo, Gabriel Duguey"
+  email: "noe_bert@mit.edu, gduguey@mit.edu"
+
+# Build settings
+markdown: kramdown
+kramdown:
+  math_engine: mathjax
+highlighter: rouge
+
+# Include these files in the build
+include:
+  - _pages # faudra tout mettre dedans
+  - USPhysics
+  - forward_physics
+
+# Plugins (optional but helpful)
+plugins:
+  - jekyll-feed
+  - jekyll-seo-tag
+  - jekyll-sitemap
+
+# Minima customization (optional)
+minima:
+  skin: auto  # or light/dark
+  social_links:
+    github: yourusername
+    linkedin: yourusername

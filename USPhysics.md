@@ -16,15 +16,15 @@ In ultrasound echography:
 
 These waves propagate as pressure waves through the tissue. The equation above governs their behavior.
 
-In biological tissues, we assume a typical speed of sound around $c = 1540 \, \text{m/s}$. To interpret echoes, we also need to understand the acoustic impedance of tissues. The acoustic impedance $Z$ characterizes how much resistance an ultrasound wave encounters as it passes through a medium and is defined as:
+In biological tissues, we assume a typical speed of sound around \(c = 1540 \, \text{m/s})\. To interpret echoes, we also need to understand the acoustic impedance of tissues. The acoustic impedance $Z$ characterizes how much resistance an ultrasound wave encounters as it passes through a medium and is defined as:
 
 $$
 Z = \rho c
 $$
 
 Where:
-- $\rho$ is the tissue density in $\text{kg/m}^3$,
-- $c$ is the speed of sound in that medium.
+- \(\rho)\ is the tissue density in \(\text{kg/m}^3)\,
+- \(c)\ is the speed of sound in that medium.
 
 ### Assumptions
 For successful reconstruction of tissue structure, the following assumptions are made:
@@ -39,7 +39,7 @@ Most assumptions are reasonable. For example:
 - (A), (C), and (E) follow from controlled probe design and beam focusing.
 - (B) is supported by measurements showing that most soft tissues (excluding bone and air) have similar sound speeds, typically around 1540 m/s (Duck, 1990).
 
-Given these assumptions, if a pulse is emitted at time $t_1$ and an echo is received at time $t_2$, then the estimated depth $d$ of the reflecting interface is:
+Given these assumptions, if a pulse is emitted at time \(t_1)\ and an echo is received at time \(t_2)\, then the estimated depth \(d)\ of the reflecting interface is:
 
 $$
 d = \frac{c}{2} \times (t_2 - t_1)
@@ -47,7 +47,7 @@ $$
 
 ### Acoustic Impedance of Biological Tissues
 
-By representing mediums as elements with acoustic impedance $z=p/v$ with $p$ local pressure waves and $v$ particle velocity, we can also write it as $z=\rho c$ where $\rho$ represents the density in $kg\space  m^{-3}$ and $c$ is the velocity in the medium.
+By representing mediums as elements with acoustic impedance \(z=p/v)\ with \(p)\ local pressure waves and \(v)\ particle velocity, we can also write it as \(z=\rho c)  where \(\rho)\ represents the density in \(kg\space  m^{-3})\ and \(c)\ is the velocity in the medium.
 
 The table below represents some values of bodily acoustic impedance
 
@@ -62,14 +62,14 @@ The table below represents some values of bodily acoustic impedance
 
 _Table of acoustic values (Hoskins, ?)_
 
-Apart from bones, most bodily tissues seem to share similar values of Impedance around $1.6 \times 10^6$.
+Apart from bones, most bodily tissues seem to share similar values of Impedance around \(1.6 \times 10^6)\.
 
 ![waves](img/waves.png)
 
 To detect reflected waves, a change in medium (i.e., a discontinuity in impedance) is required. When a wave encounters such a boundary, the following conditions hold:
 
 - The pressure and particle velocity must be continuous across the boundary.
-- Assuming the same speed of sound across the boundary, the reflected pressure $p_r$ relates to the incident pressure $p_i$ by:
+- Assuming the same speed of sound across the boundary, the reflected pressure \(p_r)\ relates to the incident pressure \(p_i)\ by:
 
 $$
 \frac{p_r}{p_i} = \frac{Z_2 - Z_1}{Z_1 + Z_2}
@@ -82,23 +82,23 @@ $$
 $$
 
 Where:
-- $Z_1, Z_2$ are the acoustic impedances of the first and second media,
-- $I_i$, $I_r$, $I_t$ are the incident, reflected, and transmitted wave intensities.
-- $R_a$ is the reflection coefficient of the physical component.
+- \(Z_1, Z_2)\ are the acoustic impedances of the first and second media,
+- \(I_i, I_r, I_t)\ are the incident, reflected, and transmitted wave intensities.
+- \(R_a)\ is the reflection coefficient of the physical component.
 
 
 ### In practice: transducer implementation
 
-Let's look again at a pulse. Upon arrival at a frontier, two coefficients $R_p$ and $T_p$, signalling reflection and transmission, are necessary to understand what is going on in detail. However, from the point of view of the transducer, the protocol is the following:
+Let's look again at a pulse. Upon arrival at a frontier, two coefficients \(R_p)\ and \(T_p)\, signalling reflection and transmission, are necessary to understand what is going on in detail. However, from the point of view of the transducer, the protocol is the following:
 
 The transducer works as follows:
-- Emits a short US pulse at a frequency $f$,
-- for a time of $T$, listen to returned echoes:
-    - Note arrival of waves at $t_1,t_2,...t_k$ and their amplitude $a_1,a_2,...,a_k$
-    - For each $t_i$, compute existing distance $d_i=\frac{c}{2}\times t_i$
+- Emits a short US pulse at a frequency \(f)\,
+- for a time of \(T)\, listen to returned echoes:
+    - Note arrival of waves at \(t_1,t_2,...t_k)\ and their amplitude \(a_1,a_2,...,a_k)\
+    - For each \(t_i)\, compute existing distance \(d_i=\frac{c}{2}\times t_i)\
     - Impute the value of the corresponding pixel by $a_i$ the amplitude of the received wave.
 
-This yields a vector, corresponding to an arrau like $[0, 0, 0, a_1, 0, 0, 0, a_2, 0, a_3]$ corresponding to the different depths and corresponding amplitudes of the machine.
+This yields a vector, corresponding to an arrau like \([0, 0, 0, a_1, 0, 0, 0, a_2, 0, a_3])\ corresponding to the different depths and corresponding amplitudes of the machine.
 
 
 ### B-Mode Imaging
