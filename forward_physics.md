@@ -42,7 +42,7 @@ substitution, but any dense solver will also work for small \(N\).
 
 We obtain an solution correspondin to the following image:
 
-![image](scope_project.png)
+![image](img/scope_project.png)
 
 ---
 
