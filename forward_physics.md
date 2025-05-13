@@ -4,11 +4,12 @@
 
 We have seen previously the physical basis for wave propagation between two medium, with a change in pressure waves at a boundary translating into variations in the impedances, and thus the apparition of non-zero reflection coefficients, and non-one transmission coefficients
 
-Looking at the following diagram, we can be reminded of the changes at a boundary $i$. For our context, we will consider that each voxel boundary is a medium change. In the coming text, we will consider that a switch from a cell \(i)\ to a following cell i+1 is a boundary \(i)\. This will be important in modeling the forward process.
+Looking at the following diagram, we can be reminded of the changes at a boundary $i$. For our context, we will consider that each voxel boundary is a medium change. In the coming text, we will consider that a switch from a cell \(i\) to a following cell i+1 is a boundary \(i\). This will be important in modeling the forward process.
 
-Intuitively, there are exponentially many constraints on the transmission as every boundary change causes a change in reflected/transmitted change, and should thus influence all of the other reflections and transmissions further down the chain. A first simulation would thus have a ray propagating, reflecting, transmitting and a counter recording the "time of return": this is what actually happens in a transducer. Since we consider that speed is constant within the body, we can instead change the prism a bit to the following paradigm: by recording the amplitude of the wave in cell \(i)\, we can use that as the sound wave received from the reflection at boundary \(i)\.
+Intuitively, there are exponentially many constraints on the transmission as every boundary change causes a change in reflected/transmitted change, and should thus influence all of the other reflections and transmissions further down the chain. A first simulation would thus have a ray propagating, reflecting, transmitting and a counter recording the "time of return": this is what actually happens in a transducer. Since we consider that speed is constant within the body, we can instead change the prism a bit to the following paradigm: by recording the amplitude of the wave in cell \(i\), we can use that as the sound wave received from the reflection at boundary \(i\).
 
 ![image](img/US_prop.png)
+<center>Schematic US propagation at a boundary</center>
 
 <!-- Cumulative products of the waves,so that received wave at --> 
 
@@ -40,9 +41,11 @@ b=\begin{pmatrix}1\\0\\0\\\vdots\\0\end{pmatrix}.
 Because the matrix is **block-tridiagonal**, it can be solved efficiently by forward/backward
 substitution, but any dense solver will also work for small \(N\).
 
-We obtain an solution correspondin to the following image:
+The logic corresponds to the following image:
 
 ![image](img/scope_project.png)
+
+<center>Cell computation and equations</center>
 
 ---
 
@@ -97,6 +100,8 @@ As we add more than two interfaces, the paradigm has to shift a little. Since we
 We batch this to process rows efficiently. In order to position an ultrasound, we need an original position \((x,y,z))\ and an orientation from which to propagat the rays. We plot the results in a fan shapee to display ultrasounds.
 
 ![image](img/ex_prop.png)
+
+<center>Sequential Ray Propagation</center>
 
 ## Artifact Replication
 
