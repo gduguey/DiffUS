@@ -6,9 +6,9 @@ We have seen previously the physical basis for wave propagation between two medi
 
 Looking at the following diagram, we can be reminded of the changes at a boundary $i$. For our context, we will consider that each voxel boundary is a medium change. In the coming text, we will consider that a switch from a cell \(i)\ to a following cell i+1 is a boundary \(i)\. This will be important in modeling the forward process.
 
-Intuitively, there are exponentially many constraints on the transmission as every boundary change causes a change in reflected/transmitted change, and should thus influence all of the other reflections and transmissions further down the chain. A first simulation would thus have a ray propagating, reflecting, transmitting and a counter recording the "time of return": this is what actually happens in a transducer. Since we consider that speed is constant within the body, we can instead change the prism a bit to the following paradigm: by recording the amplitude of the wave in cell \(i)\, we can use that as the sound wave received forom the reflection at boundary \(i)\.
+Intuitively, there are exponentially many constraints on the transmission as every boundary change causes a change in reflected/transmitted change, and should thus influence all of the other reflections and transmissions further down the chain. A first simulation would thus have a ray propagating, reflecting, transmitting and a counter recording the "time of return": this is what actually happens in a transducer. Since we consider that speed is constant within the body, we can instead change the prism a bit to the following paradigm: by recording the amplitude of the wave in cell \(i)\, we can use that as the sound wave received from the reflection at boundary \(i)\.
 
-![image](img/theoretical.png)
+![image](img/US_prop.png)
 
 <!-- Cumulative products of the waves,so that received wave at --> 
 
@@ -39,6 +39,10 @@ b=\begin{pmatrix}1\\0\\0\\\vdots\\0\end{pmatrix}.
 *(The boxed 1 ’s are the \(+g_{i+1}\) or \(+d_i\) terms; the missing entries are zeros.)*  
 Because the matrix is **block-tridiagonal**, it can be solved efficiently by forward/backward
 substitution, but any dense solver will also work for small \(N\).
+
+We obtain an solution correspondin to the following image:
+
+![image](scope_project.png)
 
 ---
 
