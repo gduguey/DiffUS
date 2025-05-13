@@ -374,7 +374,7 @@ def propagate_full_ray(refLR):
     matrix[-1, -1] = 1 # right to left ray
 
     # coupled system:
-    # g2 = t12 * g1 - r * d2
+    # g2 = t12 * g1 + r * d2
     # d1 = r * g2 + t21 * d1
     # need to add equation for every step
     for i in range(N):
@@ -390,10 +390,10 @@ def propagate_full_ray(refLR):
         matrix[gip1, gip1] = 1
 
         # build dip1
-        matrix[di, gi] = - refRL[0, i-1]
+        matrix[di, gi] = refRL[0, i-1]
         matrix[di, dip1] = - traRL[0, i-1]
         matrix[di, di] = 1
-    
+    print(refLR)
     w = torch.linalg.solve(matrix, b)
     
     return w
@@ -409,6 +409,8 @@ def propagate_full_rays_batched(refLR):
     Batcehd version of the function to propagate the full ray through the medium using the reflection and transmission coefficients. Coupled steps of the function above.
     """
     B, N = refLR.shape
+    
+    
     traLR = 1 + refLR
     traRL = 1 - refLR
     refRL = -refLR
@@ -432,11 +434,11 @@ def propagate_full_rays_batched(refLR):
         w_all[:, gip1, gip1] = 1
 
         # build dip1
-        w_all[:, di, gi] = - refRL[:, iDepth-1]
+        w_all[:, di, gi] = refRL[:, iDepth-1]
         w_all[:, di, dip1] = - traRL[:, iDepth-1]
         w_all[:, di, di] = 1
     
-    
+    print(refLR)
     w_all = torch.linalg.solve(w_all, b)  # shape (B, 2*(N+1))
     return w_all
 
