@@ -2,6 +2,9 @@
 ReMIND2Reg_dataset/imagesTr/*.nii.gz
 additional_data/**/*.nii.gz
 additional_data/*.nii.gz
+additional_data/**/*.nii
+additional_data/*.nii
+additional_data/heart_MRI/emidec-dataset-1.0.1/*.txt
 
 # Ignore all old folders across the repository
 **/old/

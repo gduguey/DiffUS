@@ -1,0 +1,699 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Simulating Ultrasound from MRI: A Differentiable, Physics-Based Approach</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:400,700&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/styles/default.min.css" rel="stylesheet">
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script>
+        MathJax = {
+            tex: { inlineMath: [['$', '$'], ['\\(', '\\)']] },
+            svg: { fontCache: 'global' }
+        };
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js" async></script>
+    <style>
+        body {
+            font-family: 'Roboto', sans-serif;
+            line-height: 1.6;
+            padding: 2rem;
+            max-width: 800px;
+            margin: auto;
+            color: #222;
+            background-color: #f9f9f9;
+        }
+
+        /* Base font size for scaling */
+        html {
+            font-size: 16px;
+        }
+
+        /* Primary Heading */
+        h1 {
+            font-size: 2.5rem;
+            /* 40px */
+            font-weight: 900;
+            /* Extra bold */
+            line-height: 1.2;
+            margin-top: 1.5rem;
+            margin-bottom: 1rem;
+            color: #000;
+            text-align: center;
+            letter-spacing: -0.5px;
+        }
+
+        /* Secondary Heading */
+        h2 {
+            font-size: 2rem;
+            /* 32px */
+            font-weight: 800;
+            line-height: 1.3;
+            margin-top: 3rem;
+            margin-bottom: 0.8rem;
+            color: #111;
+            letter-spacing: -0.4px;
+        }
+
+        /* Tertiary Heading */
+        h3 {
+            font-size: 1.75rem;
+            /* 28px */
+            font-weight: 700;
+            line-height: 1.4;
+            margin-top: 2rem;
+            margin-bottom: 0.6rem;
+            color: #222;
+            letter-spacing: -0.3px;
+        }
+
+        /* Quaternary Heading */
+        h4 {
+            font-size: 1.5rem;
+            /* 24px */
+            font-weight: 700;
+            line-height: 1.5;
+            margin-top: 0.8rem;
+            margin-bottom: 0.5rem;
+            color: #333;
+            letter-spacing: -0.2px;
+        }
+
+
+
+        code {
+            background: #eee;
+            padding: 0.2em 0.4em;
+            border-radius: 4px;
+            font-size: 0.95em;
+        }
+
+        /* table {
+            border-collapse: collapse;
+        }
+
+        #setText table th,
+        #preview-content table th {
+            border: 1px solid #dfe2e5;
+            padding: 6px 13px;
+        } */
+
+        pre code {
+            display: block;
+            padding: 1em;
+            overflow-x: auto;
+        }
+
+        blockquote {
+            margin: 1em 0;
+            padding-left: 1em;
+            border-left: 4px solid #ccc;
+            color: #555;
+        }
+
+        a {
+            color: #0366d6;
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        .featured-image {
+            width: 100%;
+            height: auto;
+            margin: 1.5rem 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .byline {
+            font-size: 0.95em;
+            color: #555;
+            margin-bottom: 2rem;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Simulating Ultrasound from MRI: A Differentiable, Physics-Based Approach</h1>
+    <center>
+        <p class="byline"><strong>Bertramo Noé</strong> and <strong>Duguey Gabriel</strong> &mdash; Final Project for
+            MIT
+            6.8300: Advances in Computer Vision</p>
+    </center>
+
+    <div style="display: flex; justify-content: center;">
+        <video autoplay loop muted playsinline width="640" height="360">
+            <source src="img/us.mp4" type="video/mp4">
+            Your browser does not support the video tag.
+        </video>
+    </div>
+
+
+    <blockquote>
+        <p>Can we simulate what a surgeon sees during an operation — just from an MRI taken before the procedure begins?
+        </p>
+    </blockquote>
+    <p>Ultrasound imaging is fast, safe, and real-time, making it indispensable during surgery. However, its images are
+        often noisy, difficult to interpret, and poorly aligned with the high-resolution MRI (Magnetic Resonance
+        Imaging)
+        scans acquired pre-operatively. This disconnect poses a serious challenge during delicate procedures like tumor
+        resection, where surgeons must mentally map unclear intraoperative ultrasound onto clearer MRI anatomy. Without
+        accurate alignment between the two modalities, it becomes harder to localize critical structures, track residual
+        tumor, or adapt the surgical plan on the fly.</p>
+    <p>In this project, we explore whether it is possible to bridge this gap by <strong>rendering ultrasound-like images
+            directly from MRI volumes</strong>. Our approach relies on a <strong>physics-informed, differentiable
+            renderer</strong> that mimics how acoustic waves propagate through tissue, reflect off boundaries, and
+        attenuate
+        with depth, capturing the key elements of B-mode ultrasound image formation.</p>
+    <p>By grounding the simulation in wave physics and acoustic impedance modeling, our method generates synthetic
+        ultrasound images that qualitatively resemble those captured during surgery. Unlike black-box models, our
+        renderer
+        is <strong>interpretable and fully differentiable</strong>, allowing it to be integrated into larger machine
+        learning pipelines, for example to train models that align or register multimodal scans.</p>
+    <p>While the current work focuses on the forward rendering process and does not yet perform image alignment, it lays
+        the
+        foundation for future systems that could combine physical simulation with learning-based optimization to support
+        real-time surgical guidance.</p>
+    <h2>Background and Related Work</h2>
+    <p>Generating synthetic ultrasound from structural scans has been explored in the context of CT scans <a
+            href="#ref6">[6]</a>. Differentiable rendering methods have
+        been used for fast alignment in X-ray/CT registration tasks <a href="#ref3">[3]</a><a href="#ref4">[4]</a>, and
+        simulation of ultrasound from CT volumes has been shown to be feasible using simplified impedance models <a
+            href="#ref6">[6]</a>.
+        In the case of MRI and US alignment, prior efforts have mainly relied on gradient-based similarity metrics <a
+            href="#ref2">[2]</a>,
+        rigid registration based on echogenic anatomical landmarks <a href="#ref1">[1]</a>, or probabilistic feature
+        matching frameworks <a href="#ref1">[1]</a>.</p>
+
+    <p>Despite progress, few methods account for the underlying wave propagation physics, particularly with respect to
+        acoustic impedance changes in soft tissues. Moreover, most existing approaches are either non-differentiable or
+        focused on structurally similar modalities <a href="#ref2">[2]</a>. To our knowledge, no prior method combines
+        MRI-to-US synthesis
+        with
+        differentiable physics-based rendering. This is the gap our work seeks to address.</p>
+    <h2>Method</h2>
+    <p>We implement a differentiable ultrasound renderer grounded in the physical principles of acoustic wave
+        propagation.
+        The renderer takes as input a volumetric MRI scan and a virtual transducer position and orientation, and outputs
+        a
+        2D image mimicking B-mode ultrasound output. The core of this system rests on two components: a physical model
+        of
+        ultrasound wave behavior and a numerical engine for forward simulation of these waves through biological media.
+    </p>
+    <h3>1. Acoustic Principles of Ultrasound Imaging</h3>
+    <p>Ultrasound waves are sound waves with frequencies above 20 kHz. In medical imaging, typical ranges span 2 MHz to
+        15
+        MHz. These high-frequency waves propagate as pressure waves through tissue. The propagation characteristics are
+        determined by the speed of sound $ c $ and the acoustic impedance $ Z $ of the tissue:</p>
+    <p>$$
+        c = f \lambda \quad \text{and} \quad Z = \rho c
+        $$</p>
+    <p>where $ f $ is the wave frequency, $ \lambda $ the wavelength, and $ \rho $ the tissue density. </p>
+    <p><strong>Acoustic impedance</strong> is the key physical quantity governing ultrasound-tissue interaction. It
+        governs
+        how waves reflect and transmit at interfaces. When a wave encounters a boundary between two media with different
+        impedances $ Z_1 $ and $ Z_2 $, the reflection and transmission are characterized by:</p>
+    <p>$$
+        R_{1 \rightarrow 2} = \left|\frac{p_r}{p_i}\right| = \left|\frac{Z_2 - Z_1}{Z_1 + Z_2}\right|, \quad T_{1
+        \rightarrow 2} = \frac{2
+        Z_2}{Z_2 +
+        Z_1}
+        $$</p>
+    <p>where $ p_r $ and $ p_i $ are the reflected and incident pressure amplitudes, and $ R_{1 \rightarrow 2} $ and $
+        T_{1
+        \rightarrow 2} $ are respectively the reflexion and the transmission coefficients from medium 1 to medium 2.</p>
+    <p>To operate reliably and enable tractable simulation, modern ultrasound probes make several physical
+        simplifications <a href="#ref10">[10]</a>.
+        These assumptions will also simplify our reasoning in the subsequent section on the forward simulation model:
+    </p>
+    <ul>
+        <li>Sound travels in straight lines.</li>
+        <li>Speed of sound is constant across soft tissues ($ c = 1540\,\text{m/s} $).</li>
+        <li>A single pulse is emitted and received.</li>
+        <li>Attenuation is uniform across media.</li>
+        <li>Signal arises only from the main beam (no side lobes).</li>
+    </ul>
+    <p>Under these assumptions, the depth of a reflecting structure can be inferred from the time it takes for the
+        emitted
+        wave to return to the transducer. If a pulse is sent at time $ t_1 $ and its echo is received at time $ t_2 $,
+        the
+        estimated depth $ d $ of the reflecting interface is:</p>
+    <p>$$
+        d = \frac{c}{2}(t_2 - t_1)
+        $$</p>
+    <p>This basic time-of-flight equation underlies the construction of A-mode and B-mode ultrasound images. In A-mode
+        (amplitude mode), the returning echo amplitudes are plotted as a 1D signal along depth, and in B-mode
+        (brightness
+        mode),
+        multiple A-lines are combined into a 2D grayscale image where echo amplitude determines pixel brightness.</p>
+    <p>In practice, the amount of reflection at an interface depends on the contrast in acoustic impedance between
+        adjacent
+        tissues. Some typical impedance values are listed below:</p>
+
+    <table style="margin: auto; border-collapse: collapse; text-align: center;">
+        <thead>
+            <tr>
+                <th style="padding: 10px; border-bottom: 2px solid #000;">Tissue</th>
+                <th style="padding: 10px; border-bottom: 2px solid #000;">Impedance [Rayls]</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>Bone</td>
+                <td>\(6.46 \times 10^6\)</td>
+            </tr>
+            <tr>
+                <td>Liver</td>
+                <td>\(1.66 \times 10^6\)</td>
+            </tr>
+            <tr>
+                <td>Blood</td>
+                <td>\(1.67 \times 10^6\)</td>
+            </tr>
+            <tr>
+                <td>Fat</td>
+                <td>\(1.33 \times 10^6\)</td>
+            </tr>
+            <tr>
+                <td>Air</td>
+                <td>\(430\)</td>
+            </tr>
+        </tbody>
+    </table>
+    <p>These values show that soft tissues have relatively similar impedances, leading to weak
+        reflections, whereas large impedance gaps (e.g., between soft tissue and bone or air) cause strong reflections
+        and shadowing.</p>
+
+    <h3>2. Modeling Ultrasound Wave Propagation in Tissue</h3>
+    <h4>2.1 From MRI to Acoustic Impedance</h4>
+    <p>Although Magnetic Resonance Imaging (MRI) does not directly measure physical properties like density or acoustic
+        impedance, MRI voxel intensities still reflect underlying tissue composition. Empirically, certain MRI sequences
+        correlate with structural features. For example, higher signal intensities in T1-weighted scans often coincide
+        with
+        fatty or dense regions.</p>
+    <p>In our framework, we leverage this correlation by learning a mapping from MRI intensity to acoustic impedance
+        values.
+        This mapping is not hand-crafted but learned through a small Multi-Layer
+        Perceptron
+        (MLP) trained on paired examples of 7 MRI and known impedance profiles from the literature <a
+            href="#ref7">[7]</a><a href="#ref8">[8]</a><a href="#ref9">[9]</a>.</p>
+    <p>After this mapping is performed, we are given a 3D volumetric map of acoustic impedance values:</p>
+    <p>$$
+        Z(x, y, z)
+        $$</p>
+    <p>This volume is the basis for our simulation of ultrasound propagation.</p>
+    <h4>2.2 Ray-Based Forward Simulation</h4>
+    <p>The goal of our renderer is to simulate what an ultrasound probe would measure when emitting a pulse from a given
+        position and direction inside this volume. To do this, we treat each ultrasound beam as a <strong>ray</strong>
+        that
+        travels through a line of voxels, interacting with impedance boundaries along the way.</p>
+    <p>Each transition between two adjacent voxels is treated as a material boundary. When a wavefront
+        reaches such a boundary, part of its energy is <strong>reflected</strong> and part is
+        <strong>transmitted</strong>,
+        depending on the difference in impedance between the two voxels.
+    </p>
+    <p>This is illustrated in the schematic below:</p>
+    <div style="text-align: center;">
+        <img src="img/US_prop2.png" alt="Schematic of wave propagation across boundaries"
+            style="max-width: 100%; height: auto; display: block; margin: auto; border: 2px solid black;" />
+        <div style="font-style: italic; margin-top: 8px;">
+            Schematic of wave propagation across boundaries
+        </div>
+    </div>
+
+
+    <p>We denote:
+    <ul>
+        <li>$ g_i $: amplitude of the wave traveling forward (right) after the $ i $-th boundary</li>
+        <li>$ d_i $: amplitude of the wave traveling backward (left) after the $ i $-th boundary</li>
+    </ul>
+    </p>
+    <p>Each pair $ (g_i, d_i) $ represents the state of the wave at voxel $ i $. These values evolve recursively based
+        on
+        the following physical rules:</p>
+    <ol>
+        <li>A forward wave $ g_i $ reaches the boundary at voxel $ i $ and generates:</li>
+        <ul>
+            <li>A reflected backward wave contributing to $ d_{i} $</li>
+            <li>A transmitted forward wave contributing to $ g_{i+1} $</li>
+        </ul>
+        <li>Similarly, a backward wave $ d_{i+1} $ arriving from the other side generates:</li>
+        <ul>
+            <li>A reflected forward wave contributing to $ g_{i+1} $</li>
+            <li>A transmitted backward wave contributing to $ d_{i} $</li>
+        </ul>
+
+    </ol>
+    <p>These relations can be formalized by a system of equations involving the <strong>reflection</strong> and
+        <strong>transmission coefficients</strong> between two media with impedances $ Z_i $ and $ Z_{i+1} $:
+    </p>
+    <p>$$
+        \begin{aligned}
+        R_{i\rightarrow i+1} &amp;= \left| \frac{Z_{i+1} - Z_i}{Z_{i+1} + Z_i} \right|, &amp;
+        T_{i \rightarrow i+1} &amp;= \frac{2 Z_{i+1}}{Z_{i+1} + Z_i}, &amp;
+        R_{i+1\rightarrow i} &amp;= R_{i\rightarrow i+1}, &amp;
+        T_{i+1 \rightarrow i} &amp;= \frac{2 Z_i}{Z_{i+1} + Z_i}
+        \end{aligned}
+        $$</p>
+    <p>Given these coefficients, the forward and backward amplitudes at each interface evolve according to the following
+        recurrence relations:</p>
+    <p>$$
+        \boxed{
+        \begin{aligned}
+        g_{i+1} &amp;= T_{i \rightarrow i+1} \cdot g_i + R_{i+1\rightarrow i} \cdot d_{i+1} \\
+        d_i &amp;= R_{i\rightarrow i+1} \cdot g_i + T_{i+1 \rightarrow i} \cdot d_{i+1}
+        \end{aligned}}
+        $$</p>
+    <p>
+        These equations describe how the wave amplitudes at voxel $ i $ are determined by:
+    <ul>
+        <li> The forward-traveling wave $ g_i $ that encounters the boundary between $ Z_i $ and $ Z_{i+1} $</li>
+        <li> The backward-traveling wave $ d_{i+1} $ coming from the next voxel</li>
+    </ul>
+    </p>
+    <p>The diagram below shows how these equations concretly work:</p>
+    <div style="text-align: center;">
+        <img src="img/scope_project2.png" alt="Recurrence relations for amplitude propagation"
+            style="max-width: 100%; height: auto; display: block; margin: auto;" />
+        <div style="font-style: italic; margin-top: 8px;">Recurrence relations for amplitude propagation</div>
+    </div>
+
+    <p>Each update step couples four unknowns: $ g_i, d_i, g_{i+1}, d_{i+1} $, and contributes two equations to the
+        global
+        system. By writing one such pair of equations for every boundary, we fully capture all internal reflections and
+        transmissions across the layered medium.</p>
+    <h4>2.3 Matrix Formulation of the Forward Pass</h4>
+    <p>To compute the resulting wave amplitudes efficiently, we arrange all unknowns into a single vector:</p>
+    <p>$$
+        x = \begin{bmatrix} g_0 &amp; d_0 &amp; g_1 &amp; d_1 &amp; \dots &amp; g_N &amp; d_N \end{bmatrix}^\top
+        $$</p>
+    <p>Each pair $ (g_i, d_i) $ represents the right- and left-traveling wave amplitudes in voxel $ i $, just after and
+        before each boundary. For a system of $ N $ voxels, we model wave propagation across $ N $ boundaries, but we
+        include $ N + 1 $ positions (from 0 to $ N $) to account for the injection point and the far-end termination.
+        This
+        yields $ 2(N+1) $ unknowns.</p>
+    <p>Each interface contributes a pair of equations describing how waves reflect and transmit across that boundary.
+        These
+        relations form a sparse linear system:</p>
+    <p>$$
+        A x = b
+        $$</p>
+    <p>For example, a simplified system with <strong>3 voxels</strong> (i.e., $ N = 3 $, 4 positions total) leads to 8
+        variables and the following matrix:</p>
+    <p>$$
+        \begin{pmatrix}
+        1 &amp; 0 &amp; 0 &amp; 0 &amp; 0 &amp; 0 &amp; 0 &amp; 0 \\
+        -R_{10} &amp; 1 &amp; 0 &amp; -T_{10} &amp; 0 &amp; 0 &amp; 0 &amp; 0 \\
+        -T_{01} &amp; 0 &amp; 1 &amp; -R_{01} &amp; 0 &amp; 0 &amp; 0 &amp; 0 \\
+        0 &amp; 0 &amp; -R_{21} &amp; 1 &amp; 0 &amp; -T_{21} &amp; 0 &amp; 0 \\
+        0 &amp; 0 &amp; -T_{12} &amp; 0 &amp; 1 &amp; -R_{12} &amp; 0 &amp; 0 \\
+        0 &amp; 0 &amp; 0 &amp; 0 &amp; -R_{32} &amp; 1 &amp; 0 &amp; -T_{32} \\
+        0 &amp; 0 &amp; 0 &amp; 0 &amp; -T_{23} &amp; 0 &amp; 1 &amp; -R_{23} \\
+        0 &amp; 0 &amp; 0 &amp; 0 &amp; 0 &amp; 0 &amp; 0 &amp; 1
+        \end{pmatrix}, \quad b = \begin{bmatrix}
+        1 \\ 0 \\ 0 \\ 0 \\ 0 \\ 0 \\ 0 \\ 0
+        \end{bmatrix}
+        $$</p>
+    <p>Here:
+    <ul>
+        <li>The <strong>first row</strong> enforces the initial condition $ g_0 = 1 $, representing a unit pulse
+            injected
+            by the transducer.</li>
+        <li>The <strong>last row</strong> sets $ d_N = 0 $, assuming no wave is entering the system from the far right,
+            a standard boundary condition when the last layer is considered semi-infinite or non-reflective.</li>
+        <li>The remaining rows model wave splitting at each boundary using the local reflection and transmission
+            coefficients.</li>
+    </ul>
+    </p>
+    <p>The resulting linear system is sparse and structured: each interface only affects the wave amplitudes in its
+        immediate neighborhood. In other words, the amplitudes at position $ i $ only depend on what happens at
+        positions $
+        i - 1 $, $ i $, and $ i + 1 $. This local connectivity makes the system fast to solve using standard numerical
+        methods like forward-backward substitution, without needing to invert a large dense matrix.</p>
+    <h4>2.4 Pixel Value Extraction and Image Assembly</h4>
+    <p>The quantity we ultimately care about — the one the ultrasound probe “sees” — is the echo that returns to
+        the
+        transducer after the wave has traveled through tissue and been reflected at various internal
+        boundaries. Mathematically, this is the backward-traveling amplitude $ d_0 $ measured at the
+        transducer location.</p>
+    <p>As the ultrasound wave travels deeper, it encounters more impedance changes and reflects multiple times. Each of
+        these reflections returns to the transducer at a different time, and under our constant-speed assumption,
+        <strong>each arrival time corresponds directly to a specific depth</strong>. This is how the probe reconstructs
+        where, inside the body, the echoes originated.
+    </p>
+    <p>To simulate this process, we take the following approach:</p>
+    <ul>
+        <li>We start by considering only the first voxel (layer of tissue). We build and solve the wave system for that
+            single layer and record the reflected amplitude $ d_0^{(1)} $. This simulates the echo coming back from the
+            <strong>first depth step</strong> (i.e., the earliest time after emission).
+        </li>
+        <li>Next, we include two voxels, allowing the wave to propagate deeper. We solve the system again and get a new
+            amplitude $ d_0^{(2)} $, corresponding to the reflection at the <strong>second depth</strong>.</li>
+        <li>We repeat this, progressively adding layers and solving a new system each time — always measuring the
+            amplitude
+            that returns to the transducer.</li>
+    </ul>
+    <p>This cumulative simulation yields a <strong>depth profile of reflected amplitudes</strong> — one value per voxel
+        depth — and mimics the sequence of echoes the transducer would receive over time. Because time and depth are
+        directly related in ultrasound, we can interpret this profile as a vertical “column” in the final image: each
+        value
+        tells us how strongly the wave was reflected at that depth.</p>
+    <p>This process is illustrated below:</p>
+    <div style="text-align: center;">
+        <img src="img/ex_prop.png" alt="Sequential Ray Propagation"
+            style="max-width: 100%; height: auto; display: block; margin: auto;" />
+        <div style="font-style: italic; margin-top: 8px;">Sequential Ray Propagation</div>
+    </div>
+
+    <p>To build a full 2D image (a synthetic B-mode ultrasound scan), we repeat this procedure for many rays emitted at
+        different angles from a single source. These rays fan out from a virtual transducer located at a 3D position $
+        (x,
+        y, z) $ and pointing in a specific direction.</p>
+    <p>For each ray:
+    <ul>
+        <li>We propagate through the tissue model as described above
+        <li>We store the full depth profile of returning amplitudes $ {d_0^{(1)}, d_0^{(2)}, ..., d_0^{(N)}} $</li>
+    </ul>
+    </p>
+    <p>Once all rays have been simulated, we stack their scanlines side-by-side in the order of their emission
+        angles.
+        The
+        result is a complete fan-shaped grayscale image where pixel brightness corresponds to echo strength, and
+        vertical
+        position corresponds to tissue depth.</p>
+    <h4>2.5 Differentiability and Optimization</h4>
+    <p>All components of the forward simulation — impedance calculation, wave reflection and transmission,
+        matrix
+        construction, and solution — are implemented using differentiable tensor operations in PyTorch. This
+        allows
+        end-to-end gradient flow through the ultrasound generation process, enabling integration with:</p>
+    <ul>
+        <li>Learning-based alignment models</li>
+        <li>Registration pipelines</li>
+        <li>Physics-informed loss functions</li>
+    </ul>
+    <p>This differentiability is a key contribution of our method, distinguishing it from traditional simulators
+        or
+        precomputed rendering techniques.</p>
+    <h4>2.5 Replicating Ultrasound Artifacts</h4>
+    <p>To make our simulated ultrasound images more realistic and clinically useful, we introduce
+        post-processing artifacts that mimic common imperfections observed in real scans. These effects allow us to
+        recover
+        images close to clinical real world US, especially useful for applications in machine learning or image
+        registration.
+    </p>
+    <p>Real ultrasound images are shaped not only by the physics of wave propagation, but also by how energy is
+        scattered,
+        attenuated, and measured. Our synthetic images therefore include the following artifact layers:</p>
+    <ul>
+        <li><strong>Speckle noise</strong>: This is a granular, interference-like pattern that arises from the
+            coherent
+            nature of ultrasound reflections within heterogeneous tissue. We model it as multiplicative noise
+            that
+            increases
+            with depth, using two components:</li>
+        <ul>
+            <li>A <strong>radial component</strong> introduces arc-like distortions along the direction of
+                propagation. Its
+                intensity increases with depth following a power law.</li>
+            <li>
+                <p>A <strong>local grain component</strong> adds high-frequency texture that mimics fine tissue
+                    heterogeneity.
+                    Its amplitude also scales with depth, making the noise coarser in deeper regions.</p>
+            </li>
+        </ul>
+        <li>
+            <p><strong>Depth-dependent attenuation and blur</strong>: As waves penetrate deeper, they lose
+                energy and
+                the
+                beam spreads laterally. We model this by applying a <strong>Gaussian blur</strong> across rays
+                (i.e.,
+                laterally) with a standard deviation that increases linearly with depth.</p>
+        </li>
+    </ul>
+    <p>These artifact layers are applied as optional and tunable post-processing steps. The combination of
+        physically
+        inspired simulation and perceptually accurate distortion helps produce images that are visually and
+        statistically
+        closer to real B-mode scans.</p>
+    <h2>Results</h2>
+
+    <p>We evaluate our method using the ReMIND2Reg dataset <a href="#ref5">[5]</a>, which contains patient-paired 3D
+        MRIs and
+        intraoperative ultrasound scans from 102 neurosurgical patients. Although both modalities are provided, the
+        dataset does not include explicit registration between the preoperative MRI and the post-resection ultrasound.
+        After reaching out to one of the dataset creators, he confirmed that ground truth alignments are not available
+        for the post-resection US, making precise spatial correspondence unknown.</p>
+
+    <p>Because the ultrasound probe's position and orientation were not recorded, we manually estimated plausible
+        transducer locations and directions using anatomical landmarks and known probe coverage patterns. Using these
+        estimated parameters, we rendered synthetic ultrasound images with our differentiable forward model.</p>
+
+    <p>The evaluation is therefore qualitative. In the first comparison below, we juxtapose three elements: the MRI
+        input, the synthetic ultrasound frame rendered from it, and a potential corresponding real intraoperative
+        ultrasound slice. This visual comparison demonstrates that our synthetic images replicate key anatomical
+        structures visible in the real ultrasound.</p>
+
+    <div style="text-align: center;">
+        <img src="img/exp_1.png"
+            alt="Visual Evaluation: MRI Input, Synthetic Fan-Shaped Ultrasound, and Real Intraoperative US Slice"
+            style="max-width: 100%; height: auto; display: block; margin: auto;" />
+        <div style="font-style: italic; margin-top: 8px;">
+            Visual comparison of MRI input (left), synthetic ultrasound (middle), and real intraoperative US (right)
+        </div>
+    </div>
+
+    <p>To further assess consistency across imaging orientations, we rendered synthetic ultrasound frames from MRI
+        slices in the sagittal, coronal, and horizontal planes. The images below show how our method captures structural
+        features across all three views.</p>
+
+    <div style="text-align: center;">
+        <img src="img/exp_2.png"
+            alt="Fan-shaped synthetic ultrasound frames rendered from sagittal (left), coronal (middle), and horizontal (right) MRI planes"
+            style="max-width: 100%; height: auto; display: block; margin: auto;" />
+        <div style="font-style: italic; margin-top: 8px;">
+            Fan-shaped synthetic ultrasound frames rendered from sagittal (left), coronal (middle), and horizontal
+            (right) MRI planes
+        </div>
+    </div>
+
+    <p>The corresponding MRI inputs for the above renderings are shown below:</p>
+
+    <div style="text-align: center;">
+        <img src="img/exp_2_MRI.png"
+            alt="MRI slices in sagittal (left), coronal (middle), and horizontal (right) orientations used as input for generating the corresponding synthetic ultrasound frames"
+            style="max-width: 100%; height: auto; display: block; margin: auto;" />
+        <div style="font-style: italic; margin-top: 8px;">
+            MRI slices in sagittal (left), coronal (middle), and horizontal (right) orientations used as input for
+            generating the corresponding synthetic ultrasound frames
+        </div>
+    </div>
+
+    <p>To simulate a more realistic intraoperative setting, we also rendered an animation of 32 consecutive synthetic
+        frames along a continuous virtual probe sweep. This dynamic visualization captures both spatial coherence and
+        structural continuity.</p>
+
+    <div style="text-align: center;">
+        <img src="img/animation.gif"
+            alt="Animated sequence of 32 synthetic ultrasound frames rendered along a continuous transducer sweep"
+            style="max-width: 100%; height: auto; display: block; margin: auto;" />
+        <div style="font-style: italic; margin-top: 8px;">
+            Animated sequence of 32 synthetic ultrasound frames rendered along a sagittal transducer sweep
+        </div>
+    </div>
+
+    <p>We also evaluated the renderer’s performance in terms of speed. On a standard CPU, a single B-mode slice is
+        generated in under 2 seconds. This runtime suggests that the method is scalable and could enable near real-time
+        rendering for surgical assistance or machine learning applications.</p>
+
+
+    <h2>Discussion and Limitations</h2>
+    <p>Our renderer demonstrates that ultrasound-like images can be synthesized from MRI data using simple
+        physical models and differentiable operations. This provides a foundation for learning-based multimodal
+        registration
+        frameworks that integrate image formation into the alignment process.</p>
+    <p>Several limitations remain:
+    <ul>
+        <li>The use of MRI intensity as a proxy for acoustic impedance is a strong
+            approximation that may not generalize across anatomical regions. </li>
+        <li>Our renderer does not account for complex wave
+            phenomena
+            such as scattering, refraction, or multi-path echoes.</li>
+        <li>In addition, our current validation is qualitative, and integration with real-time surgical systems would
+            require further engineering and clinical validation.</li>
+        <li>The boundary condition of fixing $d_N = 0$ to translate the non-reflective nature of the following cells
+            might no be true in a medium with matter in the following voxel.</li>
+    </ul>
+    </p>
+    <p>Despite these limitations, the method serves as a promising step toward fully differentiable multimodal
+        registration
+        in medical imaging!</p>
+    <h2>Conclusion</h2>
+    <p>We presented a differentiable ultrasound renderer that synthesizes realistic B-mode images directly from
+        MRI
+        volumes.
+        By modeling acoustic wave propagation through tissue layers and leveraging simple assumptions about wave
+        speed,
+        impedance, and reflection, the method produces structured, interpretable outputs without relying on
+        data-driven
+        black boxes.</p>
+    <p>Our renderer is fully differentiable, enabling integration into larger machine learning pipelines for
+        tasks such as multimodal image registration and surgical navigation. Despite the lack of ground truth alignment
+        in the ReMIND2Reg dataset, our qualitative results show encouraging visual similarity between real and rendered
+        ultrasound scans.
+    </p>
+    <p>Future work will focus on improving realism through better MRI-to-impedance mappings, and integrating the
+        renderer
+        into end-to-end trainable systems for multimodal alignement and real-time intraoperative assistance.</p>
+    <hr />
+    <h2>References</h2>
+    <p id="ref1">[1] Coupé, P., Hellier, P., Morandi, X., &amp; Barillot, C. (2012). 3D rigid registration of
+        intraoperative
+        ultrasound and preoperative MR brain images based on hyperechogenic structures. <em>International Journal of
+            Biomedical Imaging</em>, 2012.</p>
+
+    <p id="ref2">[2] Fuerst, B., Wein, W., Müller, M., &amp; Navab, N. (2014). Automatic ultrasound–MRI registration for
+        neurosurgery using the 2D and 3D LC2 metric. <em>Medical Image Analysis</em>, 18(8), 1312–1319.</p>
+
+    <p id="ref3">[3] Gopalakrishnan, V., &amp; Golland, P. (2022). Fast auto-differentiable digitally reconstructed
+        radiographs
+        for solving inverse problems in intraoperative imaging. <em>Workshop on Clinical Image-Based Procedures</em>.
+    </p>
+
+    <p id="ref4">[4] Gopalakrishnan, V., Dey, N., &amp; Golland, P. (2024). Intraoperative 2D/3D image registration via
+        differentiable X-ray rendering. <em>CVPR 2024</em>.</p>
+
+    <p id="ref5">[5] Juvekar, P., et al. (2023). The brain resection multimodal imaging database (ReMIND).
+        <a href="https://doi.org/10.7937/3RAG-D070">https://doi.org/10.7937/3RAG-D070</a>
+    </p>
+
+    <p id="ref6">[6] Nasser, S. A. &amp; Sethi, A. (2023). Simulating ultrasound images from CT scans.
+        <em>medRxiv</em>, 2023.
+    </p>
+    <p id="ref7">[7] Chan, V., &amp; Perlas, A. (2011). Basics of ultrasound imaging. <em>Atlas of Ultrasound-Guided
+            Procedures in Interventional Pain Management</em>, pp. 13–19. Springer.</p>
+
+    <p id="ref8">[8] Joarder, Y. A., Rahman, K. M., &amp; Mahi, F. F. (2020). Uplifted tissue characterization and
+        classification of fatty liver disease from ultrasound images. <em>Journal of Image Processing &amp; Pattern
+            Recognition Progress</em>, 3.</p>
+    <p id="ref9">[9] Radiopaedia contributors. (n.d.). T1 values (1.5 T). <em>Radiopaedia.org</em>. Retrieved from <a
+            href="https://radiopaedia.org/articles/t1-values-15-t?lang=us"
+            target="_blank">https://radiopaedia.org/articles/t1-values-15-t?lang=us</a></p>
+    <p id="ref10">[10]
+        Adian Liusie. (2016). Ultrasound Physics: Acoustic Impedance and Reflection. <em>YouTube</em>. Retrieved from
+        <a href="https://www.youtube.com/watch?v=SxGYPqCgJWM">https://www.youtube.com/watch?v=SxGYPqCgJWM</a>
+    </p>
+
+
+
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/highlight.min.js"></script>
+    <script>hljs.highlightAll();</script>
+</body>
+
+</html>
