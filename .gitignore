@@ -1,5 +1,7 @@
-# Ignore heavy medical image data files from ReMIND2Reg dataset
+# Ignore heavy medical image data files from ReMIND2Reg and other datasets
 ReMIND2Reg_dataset/imagesTr/*.nii.gz
+additional_data/**/*.nii.gz
+additional_data/*.nii.gz
 
 # Ignore all old folders across the repository
 **/old/
