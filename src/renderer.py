@@ -163,6 +163,7 @@ class UltrasoundRenderer:
         angle: float = 45.0,
         plot: bool = True,
         MRI : bool = False,
+        ax: plt.Axes = None,
     ):
         """
         Simulates rays and plots the resulting ultrasound fan frame.
@@ -224,16 +225,18 @@ class UltrasoundRenderer:
         intensities = processed_output.flatten()
 
         # 4. Plot
+        if ax is None:
+            fig, ax = plt.subplots(figsize=(6, 6))
         
-        plt.figure(figsize=(6, 6))
-        plt.rcParams['axes.facecolor'] = 'black'
-        plt.scatter(x_coords, z_coords, c=intensities, cmap='gray', s=1)
-        plt.gca().set_aspect('equal')
-        plt.xlabel("X")
-        plt.ylabel("Z")
-        plt.title("Fan-shaped Ultrasound Frame")
-        plt.colorbar(label="Intensity")
-        plt.show()
+        ax.set_facecolor("black")
+        scatter_plot = ax.scatter(x_coords, z_coords, c=intensities, cmap="gray", s=1)
+        # ax.set_aspect('square')
+        
+        
+        ax.set_title("Fan-shaped Ultrasound Frame")
+        
+        
+        
 
         # 4. 
         return processed_output_torch
@@ -398,49 +401,72 @@ def propagate_full_ray(refLR):
     
     return w
 
-def propagate_full_rays_batched(refLR):
+def propagate_full_rays_batched(refLR: torch.Tensor) -> torch.Tensor:
     """
-    Vectorized version of propagate_full_ray for a batch of rays.
-    Input:
-        refLR: Tensor of shape (B, N) with reflection coefficients for B rays
-    Output:
-        w_all: Tensor of shape (B, 2*(N+1)) containing [g0, d0, ..., gN, dN] for each ray
-    
-    Batcehd version of the function to propagate the full ray through the medium using the reflection and transmission coefficients. Coupled steps of the function above.
+    Solve the 2(N+1)×2(N+1) system for *each* ray in the batch.
+
+    Parameters
+    ----------
+    refLR : (B, N)  reflection coeffs for incidence from the left
+
+    Returns
+    -------
+    w : (B, 2*(N+1)) laid out as [g0, d0, g1, d1, …, gN, dN]
     """
     B, N = refLR.shape
-    
-    
-    traLR = 1 + refLR
-    traRL = 1 - refLR
-    refRL = -refLR
+    traLR = 1 + refLR              # t_il
+    traRL = 1 - refLR              # t_ir
+    refRL = -refLR                 # r_rl  (OK only if impedances equal)
 
-    size = 2*(N+1)
-    w_all = torch.zeros((B, size, size), dtype=torch.float32)
-    b = torch.zeros((B, size), dtype=torch.float32)
-    b[:,0] = 1
-    w_all[:, 0, 0] = 1
-    w_all[:, -1, -1] = 1
+    size = 2 * (N + 1)
+    A = torch.zeros((B, size, size), dtype=refLR.dtype, device=refLR.device)
+    b = torch.zeros((B, size),      dtype=refLR.dtype, device=refLR.device)
 
-    for iDepth in range(N):
-        
-        gi = 2*iDepth
-        di = 2*iDepth + 1
-        gip1 = 2*(iDepth+1)
-        dip1 = 2*(iDepth+1) + 1
-        # build gip1
-        w_all[:, gip1, gi] = - traLR[:, iDepth-1]
-        w_all[:, gip1, dip1] = refLR[:, iDepth-1]
-        w_all[:, gip1, gip1] = 1
+    # boundary conditions: g0 = 1 , d_{N+1}=0
+    b[:, 0] = 1
+    A[:, 0, 0]   = 1
+    A[:, -1, -1] = 1
 
-        # build dip1
-        w_all[:, di, gi] = refRL[:, iDepth-1]
-        w_all[:, di, dip1] = - traRL[:, iDepth-1]
-        w_all[:, di, di] = 1
-    
-    print(refLR)
-    w_all = torch.linalg.solve(w_all, b)  # shape (B, 2*(N+1))
-    return w_all
+    for i in range(N):
+        gi,  di   = 2 * i,     2 * i + 1          # positions inside the vector
+        gip1, dip1 = 2 * (i + 1), 2 * (i + 1) + 1
+
+        # Eq. 1 :  g_{i+1} - t_il g_i - r_lr d_{i+1} = 0
+        A[:, gip1, gi]   = -traLR[:, i]           # –t_il g_i
+        A[:, gip1, dip1] = -refLR[:, i]           # –r_lr d_{i+1}
+        A[:, gip1, gip1] =  1                     # +g_{i+1}
+
+        # Eq. 2 :  d_i - r_rl g_i - t_ir d_{i+1} = 0
+        A[:, di, gi]     = -refRL[:, i]           # –r_rl g_i
+        A[:, di, dip1]   = -traRL[:, i]           # –t_ir d_{i+1}
+        A[:, di, di]     =  1                     # +d_i
+
+    w = torch.linalg.solve(A, b)                  # (B, 2*(N+1))
+    return w
+
+def prop_tent(refLR: torch.Tensor) -> torch.Tensor:
+    """
+    For each truncation depth i = 0..N compute the surface-return amplitude d0^{(i)}.
+
+    Parameters
+    ----------
+    refLR : (B, N)  reflection coeffs for incidence from the left
+
+    Returns
+    -------
+    d0_per_depth : (B, N+1)  with d0^{(0)}, d0^{(1)}, …, d0^{(N)}
+    """
+    print(refLR.shape)
+    B, N = refLR.shape
+    d0_per_depth = []
+    total = []
+    for i in range(N + 1):
+        w = prop_ruff(refLR[:, :i])        # solve the truncated system
+        d0_per_depth.append(w[:, 1])       # column 1 is d0
+        total.append(w)
+    # return total
+    return torch.stack(d0_per_depth, dim=1)   # (B, N+1)  ## FIX THIS
+
 
 def rasterize_fan(x_coords, z_coords, intensities, output_shape=(256, 256)):
     """
