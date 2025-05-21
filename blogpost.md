@@ -152,8 +152,10 @@ These equations describe how the wave amplitudes at voxel $ i $ are determined b
 
 The diagram below shows how these equations concretly work:
 
-![image](img/scope_project.png)
-<center>Recurrence relations for amplitude propagation</center>
+![image](img/scope_project.png) 
+<center>
+Recurrence relations for amplitude propagation
+</center>
 
 Each update step couples four unknowns: $ g_i, d_i, g_{i+1}, d_{i+1} $, and contributes two equations to the global system. By writing one such pair of equations for every boundary, we fully capture all internal reflections and transmissions across the layered medium.
 

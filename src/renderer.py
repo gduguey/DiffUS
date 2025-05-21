@@ -7,6 +7,9 @@ from scipy.interpolate import griddata
 import matplotlib.pyplot as plt
 import numpy as np
 import scipy.signal as ss
+from scipy.ndimage import gaussian_filter
+from scipy.ndimage import gaussian_filter1d
+
 import warnings
 
 class UltrasoundRenderer:
@@ -76,7 +79,7 @@ class UltrasoundRenderer:
         """
         warnings.warn("This function is deprecated. Use simulate_rays instead, it can parse a batch of directions.")
         return torch.stack([
-            self.simulate_ray(volume, source, d)
+            self.simulate_rays(volume, source, d)
             for d in directions
         ], dim=0)
     
@@ -163,7 +166,13 @@ class UltrasoundRenderer:
         angle: float = 45.0,
         plot: bool = True,
         MRI : bool = False,
+        artifacts: bool = False,
         ax: plt.Axes = None,
+        cmap: bool = None,
+        std_radial: float = 0.00005,
+        std_local: float = 0.0003,
+        max_sigma: float = 2.0,
+        alpha: float = 1.5,
     ):
         """
         Simulates rays and plots the resulting ultrasound fan frame.
@@ -187,16 +196,26 @@ class UltrasoundRenderer:
         depths = torch.arange(self.num_samples, device=R.device).float()
         attenuation = torch.exp(-attenuation_coeff * depths)  # shape (num_samples,)
         if not MRI:
-            processed_output = propagate_full_rays_batched(R)[:, ::2] * attenuation  # (N_rays, num_samples-1, 2*(num_samples-1))
+            processed_output = propagate_full_rays_batched(R) * attenuation  # (N_rays, num_samples-1, 2*(num_samples-1))
         else:
             print("MRI Plot so less processing")
             processed_output = R
-        if not plot:
-            return processed_output
-
+        # if not plot:
+        #     return processed_output
         processed_output_torch = processed_output.clone()        
-        processed_output = processed_output.detach().cpu().numpy()
-
+        processed_output = processed_output.cpu().numpy()
+        
+        if artifacts:
+            # speckle
+            processed_output = add_speckle_arcs_np(processed_output, 
+                                            std_radial=std_radial,
+                                            std_local=std_local)
+            # lateral blur
+            processed_output = add_depth_dependent_lateral_blur_np(processed_output,
+    max_sigma=max_sigma)
+            # sharpen
+            processed_output = sharpen_np(processed_output, alpha=alpha)   
+        
         # proceed only if requires plotting
         # 2. Convert to numpy
         n_rays, n_samples = processed_output.shape
@@ -223,20 +242,21 @@ class UltrasoundRenderer:
         x_coords = points[..., 0].flatten()
         z_coords = points[..., 1].flatten()
         intensities = processed_output.flatten()
-
+        if not plot:
+            return x_coords, z_coords, intensities
         # 4. Plot
         if ax is None:
             fig, ax = plt.subplots(figsize=(6, 6))
         
         ax.set_facecolor("black")
-        scatter_plot = ax.scatter(x_coords, z_coords, c=intensities, cmap="gray", s=1)
+        if cmap is not None:
+            _ = ax.scatter(x_coords, z_coords, c=intensities, cmap=cmap, s=1)
+        else:
+            _ = ax.scatter(x_coords, z_coords, c=intensities, cmap='gray', s=1)
         # ax.set_aspect('square')
         
         
         ax.set_title("Fan-shaped Ultrasound Frame")
-        
-        
-        
 
         # 4. 
         return processed_output_torch
@@ -401,7 +421,7 @@ def propagate_full_ray(refLR):
     
     return w
 
-def propagate_full_rays_batched(refLR: torch.Tensor) -> torch.Tensor:
+def prop_ruff(refLR: torch.Tensor) -> torch.Tensor:
     """
     Solve the 2(N+1)×2(N+1) system for *each* ray in the batch.
 
@@ -442,9 +462,10 @@ def propagate_full_rays_batched(refLR: torch.Tensor) -> torch.Tensor:
         A[:, di, di]     =  1                     # +d_i
 
     w = torch.linalg.solve(A, b)                  # (B, 2*(N+1))
+    # print(w)
     return w
 
-def prop_tent(refLR: torch.Tensor) -> torch.Tensor:
+def propagate_full_rays_batched(refLR: torch.Tensor) -> torch.Tensor:
     """
     For each truncation depth i = 0..N compute the surface-return amplitude d0^{(i)}.
 
@@ -456,7 +477,7 @@ def prop_tent(refLR: torch.Tensor) -> torch.Tensor:
     -------
     d0_per_depth : (B, N+1)  with d0^{(0)}, d0^{(1)}, …, d0^{(N)}
     """
-    print(refLR.shape)
+    # print(refLR.shape)
     B, N = refLR.shape
     d0_per_depth = []
     total = []
@@ -464,9 +485,9 @@ def prop_tent(refLR: torch.Tensor) -> torch.Tensor:
         w = prop_ruff(refLR[:, :i])        # solve the truncated system
         d0_per_depth.append(w[:, 1])       # column 1 is d0
         total.append(w)
+        
     # return total
-    return torch.stack(d0_per_depth, dim=1)   # (B, N+1)  ## FIX THIS
-
+    return - torch.stack(d0_per_depth, dim=1)   # (B, N+1)  ## FIX THIS
 
 def rasterize_fan(x_coords, z_coords, intensities, output_shape=(256, 256)):
     """
@@ -496,3 +517,130 @@ def rasterize_fan(x_coords, z_coords, intensities, output_shape=(256, 256)):
         fill_value=0  # or np.nan
     )
     return img
+
+# ─── Fonctions d’artefacts ───────────────────────────────────────────────────
+
+def radial_falloff_np(image: np.ndarray,
+                      attenuation_min: float = 0.999,
+                      power: float = 2.0) -> np.ndarray:
+    """
+    Applique un dégradé d'intensité selon la profondeur (axe samples).
+    """
+    n_rays, n_samples = image.shape
+    # échelle de 1 à attenuation_min, puis puissance
+    scale = np.linspace(1.0, attenuation_min, n_samples) ** power
+    return image * scale[None, :]
+
+def add_speckle_noise_np(image: np.ndarray,
+                         std: float = 0.3) -> np.ndarray:
+    """
+    Ajoute du speckle noise multiplicatif (bruit gaussien autour de 1).
+    """
+    noise = np.random.normal(loc=1.0, scale=std, size=image.shape)
+    noisy = image * noise
+    vmin, vmax = image.min(), image.max()
+    return np.clip(noisy, vmin, vmax)
+
+def add_shadow_np(image: np.ndarray,
+                  center_ray: int,
+                  width: int = 5,
+                  strength: float = 0.3) -> np.ndarray:
+    """
+    Simule une ombre acoustique en atténuant un faisceau (quelques rays).
+    """
+    shadowed = image.copy()
+    start = max(center_ray - width, 0)
+    end = min(center_ray + width + 1, image.shape[0])
+    shadowed[start:end, :] *= strength
+    return shadowed
+
+def sharpen_np(image: np.ndarray,
+               alpha: float = 1.5) -> np.ndarray:
+    """
+    Renforce le contraste local (unsharp masking).
+    """
+    blurred = gaussian_filter(image, sigma=1)
+    sharp = image + alpha * (image - blurred)
+    vmin, vmax = image.min(), image.max()
+    return np.clip(sharp, vmin, vmax)
+
+def add_speckle_arcs_np(image: np.ndarray,
+                              std_radial: float = 0.1,
+                              std_local: float = 0.02,
+                              power_radial: float = 2.0,
+                              power_local: float = 1.5) -> np.ndarray:
+    """
+    Speckle en arcs dont l'intensité de distorsion augmente avec la profondeur.
+    
+    - std_radial   : écart‑type de base du bruit radial (créant les arcs).
+    - std_local    : écart‑type de base du grain local (texture fine).
+    - power_radial : exponent pour renforcer le bruit radial selon la profondeur.
+    - power_local  : exponent pour renforcer le grain local selon la profondeur.
+    """
+    n_rays, n_samples = image.shape
+    # 1) Normalisation de la profondeur de 0 (près) à 1 (loin)
+    depth_norm = np.linspace(0.0, 1.0, n_samples)
+
+    # 2) STD radial et local variables selon depth_norm
+    std_radial_z = std_radial * (1.0 + depth_norm**power_radial)   # arcs de plus en plus marqués
+    std_local_z  = std_local  * (1.0 + depth_norm**power_local )   # grain de plus en plus grossier
+
+    # 3) Bruit radial : un facteur par profondeur
+    radial_noise = np.random.normal(loc=1.0,
+                                    scale=std_radial_z,
+                                    size=n_samples)
+
+    # 4) Bruit local : un facteur par pixel (ray × profondeur)
+    local_noise = np.random.normal(loc=1.0,
+                                   scale=std_local_z[None, :],
+                                   size=(n_rays, n_samples))
+
+    # 5) Combinaison multiplicative
+    noise = radial_noise[None, :] * local_noise
+
+    # 6) Application et clipping des négatifs
+    noised = image * noise
+    noised[noised < 0] = 0.0
+
+    return noised
+
+def add_depth_dependent_lateral_blur_np(
+    image: np.ndarray,
+    max_sigma: float = 2.0
+) -> np.ndarray:
+    """
+    Applique un flou gaussien le long de l'axe latéral (rays) 
+    dont l'écart‑type augmente linéairement avec la profondeur.
+    """
+    n_rays, n_samples = image.shape
+    blurred = image.copy()
+
+    for z in range(n_samples):
+        sigma = max_sigma * (z / (n_samples - 1)) if z > 0 else 1e-8
+        # flou sur chaque colonne (constante en z)
+        blurred[:, z] = gaussian_filter1d(blurred[:, z], sigma)
+
+    return blurred
+
+def add_depth_dependent_axial_blur_np(
+    image: np.ndarray,
+    max_kernel: int = 7
+) -> np.ndarray:
+    """
+    Flou « axial » (sur la profondeur) qui grandit avec z, 
+    en moyennant chaque point sur une fenêtre croissante.
+    """
+    n_rays, n_samples = image.shape
+    blurred = image.copy()
+
+    for z in range(n_samples):
+        half = int((max_kernel * (z / (n_samples - 1))) // 2)
+        if half < 1:
+            continue
+
+        start = max(0, z - half)
+        end   = min(n_samples, z + half + 1)
+        # moyenne la profondeur autour de z
+        blurred[:, z] = np.mean(image[:, start:end], axis=1)
+
+    return blurred
