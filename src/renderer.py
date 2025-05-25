@@ -9,6 +9,7 @@ import numpy as np
 import scipy.signal as ss
 from scipy.ndimage import gaussian_filter
 from scipy.ndimage import gaussian_filter1d
+# from scipy.signal import ricker
 
 import warnings
 
@@ -28,8 +29,6 @@ class UltrasoundRenderer:
         R = ((Z2 - Z1)/(Z2 + Z1))**2
         """
         return (Z2 - Z1) / (Z1+Z2)
-
-    
 
     def simulate_rays(self,
         volume: torch.Tensor, 
@@ -169,8 +168,8 @@ class UltrasoundRenderer:
         artifacts: bool = False,
         ax: plt.Axes = None,
         cmap: bool = None,
-        std_radial: float = 0.00005,
-        std_local: float = 0.0003,
+        std_radial: float = 0.000002,
+        std_local: float = 0.0000005,
         max_sigma: float = 2.0,
         alpha: float = 1.5,
     ):
@@ -189,14 +188,19 @@ class UltrasoundRenderer:
             source=source,
             directions=directions,
             MRI=MRI,
-        )
+        ) # This samples the volume 
 
         # attenuation!
-        attenuation_coeff = 0.0001
-        depths = torch.arange(self.num_samples, device=R.device).float()
-        attenuation = torch.exp(-attenuation_coeff * depths)  # shape (num_samples,)
+        
         if not MRI:
-            processed_output = propagate_full_rays_batched(R) * attenuation  # (N_rays, num_samples-1, 2*(num_samples-1))
+            # processed_output = propagate_full_rays_batched(R)  # (N_rays, num_samples-1, 2*(num_samples-1))
+
+            processed_output = compute_gaussian_pulse(R, length=20, sigma=2)  # (N_rays, num_samples-1)s
+            
+            attenuation_coeff = 0.001
+            depths = torch.arange(processed_output.shape[1], device=R.device).float()
+            attenuation = torch.exp(-attenuation_coeff * depths)  # shape (num_samples,)
+            processed_output = processed_output * attenuation[None, :]  # shape (N_rays, num_samples)
         else:
             print("MRI Plot so less processing")
             processed_output = R
@@ -216,7 +220,7 @@ class UltrasoundRenderer:
             # sharpen
             processed_output = sharpen_np(processed_output, alpha=alpha)   
         
-        # proceed only if requires plotting
+        
         # 2. Convert to numpy
         n_rays, n_samples = processed_output.shape
 
@@ -249,33 +253,44 @@ class UltrasoundRenderer:
             fig, ax = plt.subplots(figsize=(6, 6))
         
         ax.set_facecolor("black")
+        ## SET CUSTOM VMIN VMAX BASED ON HISTOGRAM
+        threshold_min = 0
+        
+        threshold_max = intensities.max()
+        
+
+
         if cmap is not None:
-            _ = ax.scatter(x_coords, z_coords, c=intensities, cmap=cmap, s=1)
+            _ = ax.scatter(x_coords, z_coords, c=intensities, cmap=cmap, s=2, vmin=threshold_min, vmax=threshold_max*2)
         else:
-            _ = ax.scatter(x_coords, z_coords, c=intensities, cmap='gray', s=1)
-        # ax.set_aspect('square')
-        
-        
+            _ = ax.scatter(x_coords, z_coords, c=intensities, cmap='gray', s=2, vmin=threshold_min, vmax=threshold_max*2)
+        ax.set_aspect('equal')
+        # ax.invert_yaxis()  # Invert y-axis to match ultrasound image
+
         ax.set_title("Fan-shaped Ultrasound Frame")
+        
+        
 
         # 4. 
         return processed_output_torch
 
     @staticmethod
-    def plot_frame(frame: torch.Tensor):
+    def plot_frame(frame: torch.Tensor, ax: plt.Axes = None):
         """
         Display the simulated US frame.
         - frame: (N_rays, depth) intensity map
         """
-        plt.figure(figsize=(8, 6))
+        if ax is None:
+            plt.figure(figsize=(6, 6))
+            ax = plt.gca()
+        
         # transpose so depth goes downwards
         frame_np = frame.T.cpu().numpy()
-        plt.imshow(frame_np, cmap='gray', aspect='auto', vmin=frame_np.min(), vmax=frame_np.max())
-        plt.xlabel('Ray index')
-        plt.ylabel('Depth sample')
-        plt.title('Simulated Ultrasound')
-        plt.colorbar(label='Echo intensity')
-        plt.show()
+        ax.imshow(frame_np, cmap='gray', aspect='auto', vmin=frame_np.min(), vmax=frame_np.max())
+        ax.set_xlabel('Ray index')
+        ax.set_ylabel('Depth sample')
+        ax.set_title('Input Volume Slice')
+        return ax
 
     def plot_sector(self,
                     frame: torch.Tensor,
@@ -310,31 +325,9 @@ class UltrasoundRenderer:
         plt.title('Sector-shaped US image')
         plt.colorbar(label='Echo intensity')
         plt.show()
+   
 
-    def frame_to_bmode(self, raw_frame):
-        rf_np = raw_frame.cpu().numpy()
-        envelope = np.abs(ss.hilbert(rf_np, axis=1))  # analytic signal
-        # envelope = np.abs(2*np.diff(rf_np, axis=1))
-        bmode = np.log1p(envelope)  # log compression
-        bmode = bmode / np.max(bmode)  # normalize to [0, 1]
-        return bmode
-        # raw = raw_frame.cpu().numpy()
-        # env = np.abs(ss.hilbert(raw, axis=1))
-        # bmode = 20*np.log10(env/env.max()+1e-6)
-        # bmode = np.clip(bmode, -60, 0)
-        # bmode = (bmode + 60)/60
-        # return bmode
-
-    def plot_bmode(self, bmode):
-        plt.figure(figsize=(8,6))
-        bmode_t = bmode.T
-        plt.imshow(bmode_t, cmap='gray', aspect='auto', vmin=bmode_t.min(), vmax=bmode_t.max())
-        plt.xlabel('Ray #')
-        plt.ylabel('Depth sample')
-        plt.title('Simulated B-mode Ultrasound')
-        plt.colorbar(label='Normalized intensity')
-        plt.show()
-
+    
     def plot_sector_bmode(self,
                         bmode: np.ndarray,
                         angles: np.ndarray,
@@ -372,56 +365,7 @@ class UltrasoundRenderer:
     
 # UTILITIES
 
-def propagate_full_ray(refLR):
-    '''
-    Propagate the full ray through the medium using the reflection and transmission coefficients.
-    The function assumes that the input is a 1D tensor with shape (1, N), where N is the number of boundaries.
-    We propagate using matrix invesion, large N is not recommended.
-
-    The function returns a 2D tensor with shape (2, N), where the first row is the value of left to right ray and the second row is right to left ray.
-    '''
-    
-    N = refLR.shape[1]
-    traLR = 1 + refLR
-    traRL = 1 - refLR
-    refRL = - refLR
-
-    matrix = torch.zeros(2*(N+1),2*(N+1), dtype=torch.float32)
-    b = torch.zeros(2*(N+1), dtype=torch.float32)
-
-    # BOUNDARY CONDITIONS
-    b[0] = 1 # left to right ray
-    b[1] = 0 # right to left ray
-
-    matrix[0, 0] = 1 # left to right ray
-    matrix[-1, -1] = 1 # right to left ray
-
-    # coupled system:
-    # g2 = t12 * g1 + r * d2
-    # d1 = r * g2 + t21 * d1
-    # need to add equation for every step
-    for i in range(N):
-        # loop through computing all boundaries
-        gi = 2*i
-        di = 2*i + 1
-        gip1 = 2*(i+1)
-        dip1 = 2*(i+1) + 1
-
-        # build gip1
-        matrix[gip1, gi] = - traLR[0, i-1]
-        matrix[gip1, dip1] = refLR[0, i-1]
-        matrix[gip1, gip1] = 1
-
-        # build dip1
-        matrix[di, gi] = refRL[0, i-1]
-        matrix[di, dip1] = - traRL[0, i-1]
-        matrix[di, di] = 1
-    print(refLR)
-    w = torch.linalg.solve(matrix, b)
-    
-    return w
-
-def prop_ruff(refLR: torch.Tensor) -> torch.Tensor:
+def prop_single_ray(refLR: torch.Tensor, traLR: torch.Tensor = None, traRL: torch.Tensor = None) -> torch.Tensor:
     """
     Solve the 2(N+1)×2(N+1) system for *each* ray in the batch.
 
@@ -482,12 +426,60 @@ def propagate_full_rays_batched(refLR: torch.Tensor) -> torch.Tensor:
     d0_per_depth = []
     total = []
     for i in range(N + 1):
-        w = prop_ruff(refLR[:, :i])        # solve the truncated system
+        w = prop_single_ray(refLR[:, :i])        # solve the truncated system
         d0_per_depth.append(w[:, 1])       # column 1 is d0
         total.append(w)
         
     # return total
-    return - torch.stack(d0_per_depth, dim=1)   # (B, N+1)  ## FIX THIS
+    stacked_d0 =  torch.stack(d0_per_depth, dim=1)
+    stacked_d0 = torch.cumsum(stacked_d0, dim=1)  # cumulative sum along the depth axis
+    return stacked_d0
+
+
+def compute_echo_traces(refLR: torch.Tensor, spacing: float = 1.0, c: float = 1.54e3) -> torch.Tensor:
+    """
+    Compute the echo traces for each ray in the batch.
+
+    Parameters
+    ----------
+    refLR : (B, N)  reflection coeffs for incidence from the left
+    spacing : float, spacing between samples in mm
+    c : float, speed of sound in m/s
+
+    Returns
+    -------
+    traces : (B, N)  echo traces for each ray
+    """
+    d0_series = propagate_full_rays_batched(refLR)  # (B, N+1)
+    echo_signals = F.pad(d0_series[:,1:] - d0_series[:, :-1], (1,0))
+    delays_us = 2 * spacing * torch.arange(d0_series.shape[1], device=refLR.device) / c
+
+    return echo_signals, delays_us
+
+def compute_gaussian_pulse(refLR: torch.Tensor, spacing: float = 1.0, c: float = 1.54e3, length:int=10, sigma:int=1, pulse=None) -> torch.Tensor:
+    """
+    Compute the Gaussian pulse for each ray in the batch.
+
+    Parameters
+    ----------
+    refLR : (B, N)  reflection coeffs for incidence from the left
+    spacing : float, spacing between samples in mm
+    c : float, speed of sound in m/s
+
+    Returns
+    -------
+    pulse : (B, N)  Gaussian pulse for each ray
+    """
+    echo_signals, delays_us = compute_echo_traces(refLR, spacing, c)
+    if pulse is None:
+        pulse = gaussian_pulse(length=length, sigma=sigma)  
+        pulse = torch.tensor(pulse, dtype=echo_signals.dtype, device=echo_signals.device).unsqueeze(0).unsqueeze(0)  # (1, 1, length) to batch on rays
+    echo_signals = F.conv1d(echo_signals.unsqueeze(1), pulse, padding=length // 2)  # (B, 1, N)
+    
+    return echo_signals.squeeze(1)  # (B, N)
+
+def test():
+    print("Testing UltrasoundRenderer...")
 
 def rasterize_fan(x_coords, z_coords, intensities, output_shape=(256, 256)):
     """
@@ -518,7 +510,25 @@ def rasterize_fan(x_coords, z_coords, intensities, output_shape=(256, 256)):
     )
     return img
 
-# ─── Fonctions d’artefacts ───────────────────────────────────────────────────
+def gaussian_pulse(length: int, sigma: float) -> np.ndarray:
+    """
+    Generate a 1D Gaussian pulse centered at 0.
+    Parameters
+    ----------
+    length (int): Total number of points in the pulse (odd for symmetry).
+    sigma (float): Standard deviation of the Gaussian (controls width).
+
+    Returns
+    -------
+    pulse : np.ndarray
+        1D array of shape (length,)
+    """
+    t = np.linspace(-length // 2, length // 2, length)
+    pulse = np.exp(-0.5 * (t / sigma) ** 2)
+    return pulse / pulse.max()  # normalize to 1
+
+
+## ARTIFACTS
 
 def radial_falloff_np(image: np.ndarray,
                       attenuation_min: float = 0.999,
