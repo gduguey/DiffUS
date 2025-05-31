@@ -9,6 +9,8 @@ import numpy as np
 import scipy.signal as ss
 from scipy.ndimage import gaussian_filter
 from scipy.ndimage import gaussian_filter1d
+
+from matplotlib.widgets import Slider
 # from scipy.signal import ricker
 
 import warnings
@@ -35,7 +37,8 @@ class UltrasoundRenderer:
         source: torch.Tensor, 
         directions: torch.Tensor, 
         num_samples: int = 0,
-        MRI:bool=False) -> torch.Tensor:
+        MRI:bool=False,
+        start=0) -> torch.Tensor:
         """
         Simulates a single ray tracing through a 3D volume using batched grid_sample.
         
@@ -172,6 +175,7 @@ class UltrasoundRenderer:
         std_local: float = 0.0000005,
         max_sigma: float = 2.0,
         alpha: float = 1.5,
+        start: float = 0
     ):
         """
         Simulates rays and plots the resulting ultrasound fan frame.
@@ -189,7 +193,10 @@ class UltrasoundRenderer:
             directions=directions,
             MRI=MRI,
         ) # This samples the volume 
-
+        start = int(start * self.num_samples)
+        if start > 0:
+            R = R[:, start:]
+            print("[INFO] Starting from sample index:", start, "(for instance, to skip bones)")
         # attenuation!
         
         if not MRI:
@@ -204,11 +211,12 @@ class UltrasoundRenderer:
         else:
             print("MRI Plot so less processing")
             processed_output = R
-        # if not plot:
-        #     return processed_output
+        if not plot:
+            return processed_output
         processed_output_torch = processed_output.clone()        
         processed_output = processed_output.cpu().numpy()
-        
+
+        # reconstruct the start
         if artifacts:
             # speckle
             processed_output = add_speckle_arcs_np(processed_output, 
@@ -220,6 +228,9 @@ class UltrasoundRenderer:
             # sharpen
             processed_output = sharpen_np(processed_output, alpha=alpha)   
         
+        if start > 0:
+            processed_output = np.pad(processed_output, ((0, 0), (start, 0)), mode='constant', constant_values=0)
+            print("[INFO] Padded output to start from sample index:", start, processed_output.shape)
         
         # 2. Convert to numpy
         n_rays, n_samples = processed_output.shape
@@ -243,6 +254,8 @@ class UltrasoundRenderer:
 
         points = source_2d[None, None, :] + steps * directions_xz  # (n_rays, n_samples, 2)
 
+        points = points[:, start:, :]  # slice to start index if needed
+        processed_output = processed_output[:, start:]  # slice to start index if needed
         x_coords = points[..., 0].flatten()
         z_coords = points[..., 1].flatten()
         intensities = processed_output.flatten()
@@ -254,25 +267,33 @@ class UltrasoundRenderer:
         
         ax.set_facecolor("black")
         ## SET CUSTOM VMIN VMAX BASED ON HISTOGRAM
+
         threshold_min = 0
-        
         threshold_max = intensities.max()
-        
 
+        if threshold_max < 0:
+            warnings.warn("Intensity values contain negative values. Displaying full range.")
+            threshold_min = intensities.min()
 
-        if cmap is not None:
-            _ = ax.scatter(x_coords, z_coords, c=intensities, cmap=cmap, s=2, vmin=threshold_min, vmax=threshold_max*2)
-        else:
-            _ = ax.scatter(x_coords, z_coords, c=intensities, cmap='gray', s=2, vmin=threshold_min, vmax=threshold_max*2)
+        print(f"Intensity range: {threshold_min:.4f} to {threshold_max:.4f}")
+        if ax is None:
+            fig, ax = plt.subplots()
+            plt.subplots_adjust(left=0.1, bottom=0.25)
+
+        # Initial plot
+        scatter = ax.scatter(
+            x_coords, z_coords, c=intensities,
+            cmap=cmap if cmap is not None else 'gray',
+            s=2, vmin=threshold_min, vmax=threshold_max * 1.5
+        )
         ax.set_aspect('equal')
-        # ax.invert_yaxis()  # Invert y-axis to match ultrasound image
-
         ax.set_title("Fan-shaped Ultrasound Frame")
-        
-        
+
+        ax.set_xticks([])
+        ax.set_yticks([])
 
         # 4. 
-        return processed_output_torch
+        return processed_output_torch, scatter
 
     @staticmethod
     def plot_frame(frame: torch.Tensor, ax: plt.Axes = None):
@@ -333,6 +354,7 @@ class UltrasoundRenderer:
                         angles: np.ndarray,
                         spacing: float = 1.0):
         """
+        DEPR?
         Plot the B-mode image in true sector geometry.
         - bmode: (N_rays, depth) intensity map (NumPy array, normalized to [0, 1])
         - angles: (N_rays,) ray angles in radians
@@ -355,7 +377,7 @@ class UltrasoundRenderer:
         plt.scatter(xs, zs, c=vals, s=1, cmap='gray', vmin=min(vals), vmax=max(vals))
         ax = plt.gca()
         ax.set_aspect('equal')
-        ax.invert_yaxis()
+        # ax.invert_yaxis()
         plt.xlabel('x (lateral)')
         plt.ylabel('z (depth)')
         plt.title('Sector-shaped B-mode Ultrasound Image')
@@ -477,9 +499,6 @@ def compute_gaussian_pulse(refLR: torch.Tensor, spacing: float = 1.0, c: float =
     echo_signals = F.conv1d(echo_signals.unsqueeze(1), pulse, padding=length // 2)  # (B, 1, N)
     
     return echo_signals.squeeze(1)  # (B, N)
-
-def test():
-    print("Testing UltrasoundRenderer...")
 
 def rasterize_fan(x_coords, z_coords, intensities, output_shape=(256, 256)):
     """
