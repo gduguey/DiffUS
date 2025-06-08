@@ -211,8 +211,8 @@ class UltrasoundRenderer:
         else:
             print("MRI Plot so less processing")
             processed_output = R
-        if not plot:
-            return processed_output
+        # if not plot:
+        #     return processed_output
         processed_output_torch = processed_output.clone()        
         processed_output = processed_output.cpu().numpy()
 
