@@ -193,7 +193,10 @@ class UltrasoundRenderer:
             directions=directions,
             MRI=MRI,
         ) # This samples the volume 
-        start = int(start * self.num_samples)
+        if type(start) is float:
+            start = int(start * self.num_samples)
+        if type(start) is int:
+            start = max(0, start)  # ensure non-negative index
         if start > 0:
             R = R[:, start:]
             print("[INFO] Starting from sample index:", start, "(for instance, to skip bones)")
@@ -673,3 +676,36 @@ def add_depth_dependent_axial_blur_np(
         blurred[:, z] = np.mean(image[:, start:end], axis=1)
 
     return blurred
+
+
+def rotate_around_apex(x, 
+                       z, 
+                       apex, 
+                       median):
+    """
+    Rotate points (x, z) around the apex point to align the median direction with the [0, 1] vector.
+    x, z: 1D arrays of coordinates
+    apex: (x0, y0) coordinates (float)
+    median: (dx, dy) vector representing the median direction (float)
+    """
+    # Shift points to origin at apex
+    x_shifted = x - 128
+    z_shifted = z
+
+    # Compute angle between [0, 1] and median
+    median = np.asarray(median) / np.linalg.norm(median)
+    angle = np.arctan2(median[0], median[1])  # angle from [0,1] to median
+
+    # Rotation matrix
+    cos_a = np.cos(angle)
+    sin_a = np.sin(angle)
+    R = np.array([[cos_a, -sin_a],
+                  [sin_a,  cos_a]])
+
+    # Apply rotation
+    coords = np.vstack((x_shifted, z_shifted))  # shape (2, N)
+    rotated = R @ coords                         # shape (2, N)
+
+    # Shift back to apex-centered
+    x_rot, z_rot = rotated[0] + apex[0], rotated[1] + apex[1]
+    return x_rot, z_rot
