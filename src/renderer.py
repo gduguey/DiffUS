@@ -115,7 +115,7 @@ class UltrasoundRenderer:
         # Prepare steps and directions
         steps = torch.arange(0, num_samples, dtype=torch.float32, device=volume.device).view(1, -1, 1)  # (1, num_samples, 1)
         directions = directions.unsqueeze(1)  # (N_rays, 1, 3)
-
+        print("[INFO] Tracing rays with source:", source, "and directions shape:", directions.shape)
         # Trace points
         points = source + steps * directions 
 
@@ -167,7 +167,6 @@ class UltrasoundRenderer:
         directions: torch.Tensor,
         angle: float = 45.0,
         plot: bool = True,
-        MRI : bool = False,
         artifacts: bool = False,
         ax: plt.Axes = None,
         cmap: bool = None,
@@ -175,7 +174,8 @@ class UltrasoundRenderer:
         std_local: float = 0.0000005,
         max_sigma: float = 2.0,
         alpha: float = 1.5,
-        start: float = 0
+        start: float = 0,
+        **kwargs  # for future extensibility, e.g. MRI=False
     ):
         """
         Simulates rays and plots the resulting ultrasound fan frame.
@@ -191,8 +191,10 @@ class UltrasoundRenderer:
             volume=volume,
             source=source,
             directions=directions,
-            MRI=MRI,
+            MRI=False,
         ) # This samples the volume 
+
+        # Start index handling
         if type(start) is float:
             start = int(start * self.num_samples)
         if type(start) is int:
@@ -200,25 +202,19 @@ class UltrasoundRenderer:
         if start > 0:
             R = R[:, start:]
             print("[INFO] Starting from sample index:", start, "(for instance, to skip bones)")
-        # attenuation!
         
-        if not MRI:
-            # processed_output = propagate_full_rays_batched(R)  # (N_rays, num_samples-1, 2*(num_samples-1))
+        # DEPRECATED THIS: # processed_output = propagate_full_rays_batched(R)  # (N_rays, num_samples-1, 2*(num_samples-1))
 
-            processed_output = compute_gaussian_pulse(R, length=20, sigma=2)  # (N_rays, num_samples-1)s
-            
-            attenuation_coeff = 0.001
-            depths = torch.arange(processed_output.shape[1], device=R.device).float()
-            attenuation = torch.exp(-attenuation_coeff * depths)  # shape (num_samples,)
-            processed_output = processed_output * attenuation[None, :]  # shape (N_rays, num_samples)
-        else:
-            print("MRI Plot so less processing")
-            processed_output = R
-        # if not plot:
-        #     return processed_output
+        processed_output = compute_gaussian_pulse(R, length=20, sigma=2) # (N_rays, num_samples-1)s
+        
+        # Attenuation model
+        attenuation_coeff = 0.001
+        depths = torch.arange(processed_output.shape[1], device=R.device).float()
+        attenuation = torch.exp(-attenuation_coeff * depths)  # shape (num_samples,)
+        processed_output = processed_output * attenuation[None, :]  # shape (N_rays, num_samples)
+        
         processed_output_torch = processed_output.clone()        
-        processed_output = processed_output.cpu().numpy()
-
+        
         # reconstruct the start
         if artifacts:
             # speckle
@@ -232,30 +228,32 @@ class UltrasoundRenderer:
             processed_output = sharpen_np(processed_output, alpha=alpha)   
         
         if start > 0:
-            processed_output = np.pad(processed_output, ((0, 0), (start, 0)), mode='constant', constant_values=0)
+            # processed_output = np.pad(processed_output, ((0, 0), (start, 0)), mode='constant', constant_values=0)
+            processed_output = F.pad(processed_output, pad=(start, 0, 0, 0), mode='constant', value=0)
             print("[INFO] Padded output to start from sample index:", start, processed_output.shape)
         
         # 2. Convert to numpy
         n_rays, n_samples = processed_output.shape
 
         # 3. Compute ray geometry
-        source_2d = np.array([128, 0])  # (x, z), assuming 2D fan centered at (128, 0)
-        thetas = np.radians(np.linspace(-angle, angle, n_rays))  # shape (n_rays,)
+        source_2d = torch.tensor([128.0, 0.0])  # (x, z), assuming 2D fan centered at (128, 0)
+        thetas = torch.deg2rad(torch.linspace(-angle, angle, n_rays))  # shape (n_rays,)
         ray_len = n_samples  # number of points along each ray
 
         # Vectorized generation of all points
         steps = np.arange(ray_len)  # (n_samples,)
 
-        directions_xz = np.stack([
-            np.sin(thetas),   # (n_rays,)
-            np.cos(thetas)    # (n_rays,)
-        ], axis=1)  # (n_rays, 2)
+        # Ray directions in 2D
+        directions_xz = torch.stack([
+            torch.sin(thetas),  # (n_rays,)
+            torch.cos(thetas)
+        ], dim=1)  # (n_rays, 2)
 
         # Expand dimensions
-        steps = steps[None, :, None]              # (1, n_samples, 1)
-        directions_xz = directions_xz[:, None, :]  # (n_rays, 1, 2)
+        steps = torch.arange(n_samples, dtype=torch.float32).view(1, n_samples, 1)  # (1, n_samples, 1)
+        directions_xz = directions_xz.view(n_rays, 1, 2)                             # (n_rays, 1, 2)
 
-        points = source_2d[None, None, :] + steps * directions_xz  # (n_rays, n_samples, 2)
+        points = source_2d.view(1, 1, 2) + steps * directions_xz  # (n_rays, n_samples, 2)
 
         points = points[:, start:, :]  # slice to start index if needed
         processed_output = processed_output[:, start:]  # slice to start index if needed
@@ -264,7 +262,8 @@ class UltrasoundRenderer:
         intensities = processed_output.flatten()
         if not plot:
             return x_coords, z_coords, intensities
-        # 4. Plot
+        
+        # -- 4. Plot
         if ax is None:
             fig, ax = plt.subplots(figsize=(6, 6))
         
@@ -677,7 +676,6 @@ def add_depth_dependent_axial_blur_np(
 
     return blurred
 
-
 def rotate_around_apex(x, 
                        z, 
                        apex, 
@@ -689,23 +687,66 @@ def rotate_around_apex(x,
     median: (dx, dy) vector representing the median direction (float)
     """
     # Shift points to origin at apex
+    device = x.device
+
     x_shifted = x - 128
     z_shifted = z
 
     # Compute angle between [0, 1] and median
-    median = np.asarray(median) / np.linalg.norm(median)
-    angle = np.arctan2(median[0], median[1])  # angle from [0,1] to median
+    median_vec = torch.tensor(median, dtype=torch.float32, device=device)
+    median_vec = median_vec / median_vec.norm()
+    
+    angle = torch.atan2(median_vec[0], median_vec[1])  # angle from [0,1] to median
+
 
     # Rotation matrix
-    cos_a = np.cos(angle)
-    sin_a = np.sin(angle)
-    R = np.array([[cos_a, -sin_a],
-                  [sin_a,  cos_a]])
+    cos_a = torch.cos(angle)
+    sin_a = torch.sin(angle)
+    R = torch.tensor([[cos_a, -sin_a],
+                      [sin_a,  cos_a]], device=device)
+
 
     # Apply rotation
-    coords = np.vstack((x_shifted, z_shifted))  # shape (2, N)
-    rotated = R @ coords                         # shape (2, N)
+    coords = torch.stack((x_shifted, z_shifted), dim=0)  # shape (2, N)
+    rotated = R @ coords                            # shape (2, N)
 
     # Shift back to apex-centered
-    x_rot, z_rot = rotated[0] + apex[0], rotated[1] + apex[1]
+    x_rot = rotated[0] + apex[0]
+    z_rot = rotated[1] + apex[1]
     return x_rot, z_rot
+
+def differentiable_splat(x, z, intensities, H=256, W=256, sigma=2.0):
+    """
+    Efficient differentiable splatting with convolution-based interpolation.
+    - x, z must be in [0, W-1] and [0, H-1]
+    """
+    device = x.device
+    x = x.to(dtype=torch.float32)
+    z = z.to(dtype=torch.float32)
+    intensities = intensities.to(dtype=torch.float32)
+
+    image = torch.zeros((1, 1, H, W), device=device)
+    weight = torch.zeros_like(image)
+
+    # Discrete pixel locations
+    x_idx = torch.clamp(x.round().long(), 0, W - 1)
+    z_idx = torch.clamp(z.round().long(), 0, H - 1)
+
+    # Splat intensity and weight
+    image[0, 0, z_idx, x_idx] += intensities
+    weight[0, 0, z_idx, x_idx] += 1
+
+    # Define a Gaussian kernel
+    size = int(6 * sigma) | 1  # ensure odd size
+    coords = torch.arange(size, device=device) - size // 2
+    kernel_1d = torch.exp(-0.5 * (coords / sigma) ** 2)
+    kernel_1d = kernel_1d / kernel_1d.sum()
+    kernel_2d = kernel_1d[:, None] @ kernel_1d[None, :]
+    kernel_2d = kernel_2d.to(device).unsqueeze(0).unsqueeze(0)  # shape (1,1,K,K)
+
+    # Blur the image and normalize
+    blurred_img = F.conv2d(image, kernel_2d, padding=size//2)
+    blurred_weight = F.conv2d(weight, kernel_2d, padding=size//2)
+    output = blurred_img / (blurred_weight + 1e-8)
+
+    return output[0, 0]  # Return (H, W) image
