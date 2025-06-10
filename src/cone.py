@@ -132,18 +132,18 @@ def overlay_cone(us_slice: np.ndarray,
     
     return mask_cone
 
-def plot_overlay_cone(us_slice: np.ndarray, mask_cone: np.ndarray):
+def plot_overlay_cone(us_slice: np.ndarray, mask_cone: np.ndarray, ax=None, title="US slice with cone overlay"):
     H, W = us_slice.shape
     overlay = np.zeros((H, W, 4), dtype=float)
     overlay[..., 0] = 1  # Red channel
     overlay[..., 3] = mask_cone * 0.3  # Alpha channel (30% opacity)
-
-    plt.figure(figsize=(6, 6))
-    plt.imshow(us_slice, cmap="gray", origin="lower")
-    plt.imshow(overlay, origin="lower")
-    plt.title("US slice with cone overlay")
-    plt.axis('off')
-    plt.show()
+    if ax is None:
+        plt.figure(figsize=(6, 6))
+        ax = plt.gca()
+    ax.imshow(us_slice, cmap="gray", origin="lower")
+    ax.imshow(overlay, origin="lower")
+    ax.set_title(title)
+    ax.axis('off')
 
 def cone_us_to_mri_world(
         apex_us_vox,           # (x, y, z) in US voxel coordinates
@@ -169,7 +169,10 @@ def cone_us_to_mri_world(
 
     return apex_t1_vox, direction_vec_t1
 
-def plot_median_line(us_slice, apex, direction_vector, d1, d2):
+def plot_median_line(us_slice, apex, direction_vector, d1, d2, ax=None):
+    if ax is None:
+        plt.figure(figsize=(8, 6))
+        ax = plt.gca()
     x0, y0 = apex
     dx, dy = direction_vector
     
@@ -177,26 +180,23 @@ def plot_median_line(us_slice, apex, direction_vector, d1, d2):
     p1 = (x0 + d1 * dx, y0 + d1 * dy)
     p2 = (x0 + d2 * dx, y0 + d2 * dy)
     
-    plt.figure(figsize=(8, 6))
-    plt.imshow(us_slice, cmap='gray', origin='lower')
-    plt.xlim(left=0)
-    plt.ylim(bottom=0)
+    ax.imshow(us_slice, cmap='gray', origin='lower')
+    ax.set_xlim(left=0)
+    ax.set_ylim(bottom=0)
     
     # Plot full median line (dashed)
-    plt.axline((x0, y0), slope=dy/dx if dx != 0 else 1e10, 
-               color='cyan', linestyle='--', alpha=0.5)
+    ax.axline((x0, y0), slope=dy/dx if dx != 0 else 1e10, 
+              color='cyan', linestyle='--', alpha=0.5)
     
     # Plot selected segment
-    plt.plot([p1[0], p2[0]], [p1[1], p2[1]], 
-             'r-', linewidth=3, label=f'd1={d1}, d2={d2}')
+    ax.plot([p1[0], p2[0]], [p1[1], p2[1]], 
+            'r-', linewidth=3, label=f'd1={d1}, d2={d2}')
     
     # Mark apex and endpoints
-    plt.scatter(p1[0], p1[1], s=80, c='lime', marker='o', label='Start')
-    plt.scatter(p2[0], p2[1], s=80, c='red', marker='o', label='End')
+    ax.scatter(p1[0], p1[1], s=80, c='lime', marker='o', label='Start')
+    ax.scatter(p2[0], p2[1], s=80, c='red', marker='o', label='End')
     
-    
-    plt.title("Ultrasound Median Line")
-    plt.legend()
-    plt.axis('off')
-    plt.show()
+    ax.set_title("Ultrasound Median Line")
+    ax.legend()
+    ax.axis('off')
 
