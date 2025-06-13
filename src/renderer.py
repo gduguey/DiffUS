@@ -268,20 +268,23 @@ class UltrasoundRenderer:
         # 2. Convert to numpy
         n_rays, n_samples = processed_output.shape
 
-        # 3. Compute ray geometry
-        source_2d = torch.tensor([128.0, 0.0])  # (x, z), assuming 2D fan centered at (128, 0)
-        thetas = torch.deg2rad(torch.linspace(-angle, angle, n_rays))  # shape (n_rays,)
+        # # 3. Compute ray geometry
+        # source_2d = torch.tensor([128.0, 0.0])  # (x, z), assuming 2D fan centered at (128, 0)
+        # thetas = torch.deg2rad(torch.linspace(-angle, angle, n_rays))  # shape (n_rays,)
         ray_len = n_samples  # number of points along each ray
 
         # Vectorized generation of all points
         steps = np.arange(ray_len)  # (n_samples,)
 
-        # Ray directions in 2D
-        directions_xz = torch.stack([
-            torch.sin(thetas),  # (n_rays,)
-            torch.cos(thetas)
-        ], dim=1)  # (n_rays, 2)
+        # # Ray directions in 2D
+        # directions_xz = torch.stack([
+        #     torch.sin(thetas),  # (n_rays,)
+        #     torch.cos(thetas)
+        # ], dim=1)  # (n_rays, 2)
 
+        # Modifs Gabi push pour Noé
+        source_2d = source[:2]
+        directions_xz = directions[:, :2]  # Use the first two components for 2D projection
         # Expand dimensions
         steps = torch.arange(n_samples, dtype=torch.float32).view(1, n_samples, 1)  # (1, n_samples, 1)
         directions_xz = directions_xz.view(n_rays, 1, 2)                             # (n_rays, 1, 2)
