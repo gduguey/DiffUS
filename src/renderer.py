@@ -160,7 +160,7 @@ class UltrasoundRenderer:
 
         # Ensure Z is in (D, H, W) order
         Z = Z.permute(2, 0, 1).unsqueeze(0).unsqueeze(0).contiguous().float()  # (1, 1, D, H, W)
-        grid = torch.empty_like(points, dtype=torch.float32)
+        grid = torch.empty_like(points, dtype=torch.float32, device=volume.device)
         grid[..., 0] = 2 * (points[..., 0] / (W - 1)) - 1  # x
         grid[..., 1] = 2 * (points[..., 1] / (H - 1)) - 1  # y
         grid[..., 2] = 2 * (points[..., 2] / (D - 1)) - 1  # z
@@ -225,7 +225,7 @@ class UltrasoundRenderer:
             directions=directions,
             MRI=False,
         ) # This samples the volume 
-
+        device = R.device
         # Start index handling
         if type(start) is float:
             start = int(start * self.num_samples)
@@ -242,7 +242,7 @@ class UltrasoundRenderer:
         
         # Attenuation model
         attenuation_coeff = 0.001
-        depths = torch.arange(processed_output.shape[1], device=R.device).float()
+        depths = torch.arange(processed_output.shape[1], device=device).float()
         attenuation = torch.exp(-attenuation_coeff * depths)  # shape (num_samples,)
         processed_output = processed_output * attenuation[None, :]  # shape (N_rays, num_samples)
         
@@ -286,7 +286,7 @@ class UltrasoundRenderer:
         source_2d = source[:2]
         directions_xz = directions[:, :2]  # Use the first two components for 2D projection
         # Expand dimensions
-        steps = torch.arange(n_samples, dtype=torch.float32).view(1, n_samples, 1)  # (1, n_samples, 1)
+        steps = torch.arange(n_samples, dtype=torch.float32, device=device).view(1, n_samples, 1)  # (1, n_samples, 1)
         directions_xz = directions_xz.view(n_rays, 1, 2)                             # (n_rays, 1, 2)
 
         points = source_2d.view(1, 1, 2) + steps * directions_xz  # (n_rays, n_samples, 2)
