@@ -95,7 +95,7 @@ class UltrasoundRenderer:
         Simulates ray tracing through a 3D volume using batched grid_sample.
         
         Args:
-            volume: (D, H, W) Tensor of acoustic properties (e.g., normalized impedance)
+            volume: (H, W, D) Tensor of acoustic properties (e.g., normalized impedance) oriented such that [:,:,i] is an axial slice at depth i
             source: (3,) Tensor for the starting point of rays
             directions: (N_rays, 3) Tensor of ray directions (must be unit vectors)
             num_samples: int, number of steps along each ray
@@ -107,38 +107,70 @@ class UltrasoundRenderer:
         if directions.ndim == 1:
             directions = directions.unsqueeze(0)
         
-        Z = (volume - volume.min()) / (volume.max() - volume.min())
-        Z = Z * (1.7e6 - 1.4e6) + 1.4e6
-
-        D, H, W = volume.shape
+        # Z = (volume - volume.min()) / (volume.max() - volume.min())
+        # Z = Z * (1.7e6 - 1.4e6) + 1.4e6
+        Z = volume  # assume volume is already normalized impedance
+        
+        H, W, D = volume.shape
         
         # Prepare steps and directions
         steps = torch.arange(0, num_samples, dtype=torch.float32, device=volume.device).view(1, -1, 1)  # (1, num_samples, 1)
         directions = directions.unsqueeze(1)  # (N_rays, 1, 3)
+        assert directions.shape[1] == 1, "Directions must be a unit vector for each ray."
         print("[INFO] Tracing rays with source:", source, "and directions shape:", directions.shape)
         # Trace points
         points = source + steps * directions 
+        if False:
+            # Compute variance across each dimension
+            var_x = points[..., 0].var().item()
+            var_y = points[..., 1].var().item()
+            var_z = points[..., 2].var().item()
+            variances = [var_x, var_y, var_z]
+            drop_axis = variances.index(min(variances))  # axis with least variance
 
+            # Set axis labels for clarity
+            axis_names = ['x', 'y', 'z']
+            keep_axes = [i for i in range(3) if i != drop_axis]
+            ax0, ax1 = keep_axes
+
+            # Extract the 2D projection of points
+            proj0 = points[:, :, ax0].flatten().cpu()
+            proj1 = points[:, :, ax1].flatten().cpu()
+
+            # Choose the corresponding slice of the volume
+            vol_np = volume.cpu().numpy()
+            slice_idx = int(points[0, 0, drop_axis].item())  # round to nearest index
+            slice_idx = max(0, min(slice_idx, volume.shape[drop_axis] - 1))
+
+            if drop_axis == 0:
+                slice_img = vol_np[slice_idx, :, :]
+            elif drop_axis == 1:
+                slice_img = vol_np[:, slice_idx, :]
+            else:
+                slice_img = vol_np[:, :, slice_idx]
+
+            # Plot
+            plt.figure(figsize=(6, 6))
+            plt.imshow(slice_img, cmap='gray', alpha=0.5, origin='lower')
+            plt.scatter(proj0, proj1, s=1, c='red', alpha=0.5)
+            plt.title(f"Projection in {axis_names[ax0]}-{axis_names[ax1]} plane")
+            plt.xlabel(axis_names[ax0])
+            plt.ylabel(axis_names[ax1])
+            plt.show()
+
+        # Ensure Z is in (D, H, W) order
+        Z = Z.permute(2, 0, 1).unsqueeze(0).unsqueeze(0).contiguous().float()  # (1, 1, D, H, W)
         grid = torch.empty_like(points, dtype=torch.float32)
-        
-        grid[..., 0] = 2 * (points[..., 2] / max(D - 1, 1)) - 1  # z → x
-        grid[..., 1] = 2 * (points[..., 1] / max(H - 1, 1)) - 1  # y → y
-        grid[..., 2] = 2 * (points[..., 0] / max(W - 1, 1)) - 1  # x → z
-
-        # Reshape for grid_sample
-        grid = grid.view(-1, num_samples, 1, 1, 3) 
-
-        sampler = Z.unsqueeze(0).unsqueeze(0)
-        sampler = sampler.expand(grid.shape[0], -1, -1, -1, -1)
-
+        grid[..., 0] = 2 * (points[..., 0] / (W - 1)) - 1  # x
+        grid[..., 1] = 2 * (points[..., 1] / (H - 1)) - 1  # y
+        grid[..., 2] = 2 * (points[..., 2] / (D - 1)) - 1  # z
+        grid = grid.view(1, 64, num_samples, 1, 3)
+        if False:  # DEBUG
+            print("[INFO] Grid shape:", grid.shape, "Z shape:", Z.shape)
+        # Sampling
         ray_values = F.grid_sample(
-            sampler,
-            grid,
-            mode='bilinear',
-            padding_mode='border',
-            align_corners=True,
+            Z, grid, mode='bilinear', padding_mode='border', align_corners=True
         ).squeeze()
-
         return ray_values
     
     def trace_rays(self, volume, sources, directions, num_samples):
@@ -205,7 +237,8 @@ class UltrasoundRenderer:
         
         # DEPRECATED THIS: # processed_output = propagate_full_rays_batched(R)  # (N_rays, num_samples-1, 2*(num_samples-1))
 
-        processed_output = compute_gaussian_pulse(R, length=20, sigma=2) # (N_rays, num_samples-1)s
+        # processed_output = compute_gaussian_pulse(R, length=20, sigma=2) # (N_rays, num_samples-1)s
+        processed_output = R
         
         # Attenuation model
         attenuation_coeff = 0.001
