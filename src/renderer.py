@@ -237,8 +237,8 @@ class UltrasoundRenderer:
         
         # DEPRECATED THIS: # processed_output = propagate_full_rays_batched(R)  # (N_rays, num_samples-1, 2*(num_samples-1))
 
-        # processed_output = compute_gaussian_pulse(R, length=20, sigma=2) # (N_rays, num_samples-1)s
-        processed_output = R
+        processed_output = compute_gaussian_pulse(R, length=20, sigma=2) # (N_rays, num_samples-1)s
+        # processed_output = R
         
         # Attenuation model
         attenuation_coeff = 0.001
