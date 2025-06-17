@@ -103,6 +103,7 @@ class UltrasoundRenderer:
         Returns:
             R: (N_rays, num_samples-1) Tensor of reflection coefficients along each ray
         """
+        n_rays = directions.shape[0]
         # housekeeping
         if directions.ndim == 1:
             directions = directions.unsqueeze(0)
@@ -164,7 +165,7 @@ class UltrasoundRenderer:
         grid[..., 0] = 2 * (points[..., 0] / (W - 1)) - 1  # x
         grid[..., 1] = 2 * (points[..., 1] / (H - 1)) - 1  # y
         grid[..., 2] = 2 * (points[..., 2] / (D - 1)) - 1  # z
-        grid = grid.view(1, 64, num_samples, 1, 3)
+        grid = grid.view(1, n_rays, num_samples, 1, 3)
         if False:  # DEBUG
             print("[INFO] Grid shape:", grid.shape, "Z shape:", Z.shape)
         # Sampling
