@@ -37,6 +37,27 @@ def mri_to_us_point(i_mri: int,
 
     return us_slice, us_idx
 
+def us_to_mri_point(i_us: int,
+                    j_us: int,
+                    slice_idx: int,
+                    US_vol: np.ndarray,
+                    US_affine: np.ndarray,
+                    T1_vol: np.ndarray,
+                    T1_affine: np.ndarray):
+    """
+    Map a voxel coordinate from US to MRI space and extract the corresponding MRI slice and indices.
+    """
+    D_us, H_us, W_us = US_vol.shape
+    # if not (0 <= slice_idx < D_us and 0 <= i_us < H_us and 0 <= j_us < W_us):
+    #     raise ValueError(f"US: indices out of range (i={i_us}, j={j_us}, k={slice_idx})")
+    us_idx_3d = np.array([slice_idx, i_us, j_us])
+    world_pt = voxel_to_world(us_idx_3d, US_affine)
+    mri_idx_f = world_to_voxel(world_pt, T1_affine)
+    mri_idx = np.round(mri_idx_f).astype(int)
+    k_mri, i_mri, j_mri = mri_idx
+    mri_slice = T1_vol[k_mri, :, :]  # axial slice in MRI (H_mri × W_mri)
+    return mri_slice, mri_idx
+
 def plot_mri_us_aligned(i_mri: int, j_mri: int, slice_idx: int, T1_vol: np.ndarray, us_slice: np.ndarray, us_idx: np.ndarray):  
     t1_slice = T1_vol[:, :, slice_idx]
     i_us, j_us, k_us = us_idx
@@ -55,6 +76,23 @@ def plot_mri_us_aligned(i_mri: int, j_mri: int, slice_idx: int, T1_vol: np.ndarr
     plt.tight_layout()
     plt.show()
 
+def plot_mri_us_aligned_0(i_us: int, j_us: int, slice_idx: int, us_vol: np.ndarray, mri_slice: np.ndarray, mri_idx: np.ndarray):  
+    us_slice = us_vol[slice_idx, :, :]
+    k_mri, i_mri, j_mri = mri_idx
+    fig, axes = plt.subplots(1, 2, figsize=(12, 6))
+
+    axes[0].imshow(mri_slice, cmap='gray', origin='lower')
+    axes[0].plot(i_mri, j_mri, 'ro', markersize=6)
+    axes[0].set_title(f"T1 – slice k={k_mri}")
+    axes[0].axis('off')
+
+    axes[1].imshow(us_slice, cmap='gray', origin='lower')
+    axes[1].plot(i_us, j_us, 'ro', markersize=6)
+    axes[1].set_title(f"US  – slice k={slice_idx}")
+    axes[1].axis('off')
+
+    plt.tight_layout()
+    plt.show()
 
 
 def compute_us_apex_and_direction(m_left, b_left, m_right, b_right):
