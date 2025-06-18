@@ -174,7 +174,7 @@ def plot_overlay_cone(us_slice: np.ndarray, mask_cone: np.ndarray, ax=None, titl
     H, W = us_slice.shape
     overlay = np.zeros((H, W, 4), dtype=float)
     overlay[..., 0] = 1  # Red channel
-    overlay[..., 3] = mask_cone * 0.3  # Alpha channel (30% opacity)
+    overlay[..., 3] = mask_cone.T * 0.3  # Alpha channel (30% opacity)
     if ax is None:
         plt.figure(figsize=(6, 6))
         ax = plt.gca()
@@ -238,3 +238,21 @@ def plot_median_line(us_slice, apex, direction_vector, d1, d2, ax=None):
     ax.legend()
     ax.axis('off')
 
+def generate_cone_directions(direction_mri_world, opening_angle, n_rays):
+    """
+    Generate a fan of directions centered on direction_mri_world,
+    spanning opening_angle (in radians), in the (x, y) plane (z=0).
+    Returns: (n_rays, 3) tensor
+    """
+    # Normalize the median direction
+    d = np.array(direction_mri_world[:2])
+    d = d / np.linalg.norm(d)
+    # Orthogonal vector in-plane
+    ortho = np.array([-d[1], d[0]])
+    # Angles from -half to +half opening
+    angles = np.linspace(-opening_angle/2, opening_angle/2, n_rays)
+    directions = []
+    for a in angles:
+        v = np.cos(a) * d + np.sin(a) * ortho
+        directions.append([v[0], v[1], 0.0])
+    return torch.tensor(directions, dtype=torch.float32)

@@ -54,7 +54,7 @@ class UltrasoundRenderer:
         if num_samples == 0:
             num_samples = self.num_samples
                 
-        impedances =  self.trace_ray(
+        x,y,z, impedances =  self.trace_ray(
             volume=volume, 
             source=source, 
             directions=directions, 
@@ -67,7 +67,7 @@ class UltrasoundRenderer:
         R = self.compute_reflection_coeff(Z1, Z2)
         if MRI:
             return Z1
-        return R.squeeze(0) 
+        return x,y,z, R.squeeze(0) 
 
     def simulate_frame(self,
                        volume: torch.Tensor,
@@ -127,6 +127,7 @@ class UltrasoundRenderer:
             var_y = points[..., 1].var().item()
             var_z = points[..., 2].var().item()
             variances = [var_x, var_y, var_z]
+            print(f"[INFO] Variances: x={var_x:.4f}, y={var_y:.4f}, z={var_z:.4f}")
             drop_axis = variances.index(min(variances))  # axis with least variance
 
             # Set axis labels for clarity
@@ -153,26 +154,29 @@ class UltrasoundRenderer:
             # Plot
             plt.figure(figsize=(6, 6))
             plt.imshow(slice_img, cmap='gray', alpha=0.5, origin='lower')
-            plt.scatter(proj0, proj1, s=1, c='red', alpha=0.5)
+            plt.scatter(proj0, proj1, s=1, c='red', alpha=0.05)
             plt.title(f"Projection in {axis_names[ax0]}-{axis_names[ax1]} plane")
             plt.xlabel(axis_names[ax0])
             plt.ylabel(axis_names[ax1])
             plt.show()
 
         # Ensure Z is in (D, H, W) order
-        Z = Z.permute(2, 0, 1).unsqueeze(0).unsqueeze(0).contiguous().float()  # (1, 1, D, H, W)
-        grid = torch.empty_like(points, dtype=torch.float32, device=volume.device)
-        grid[..., 0] = 2 * (points[..., 0] / (W - 1)) - 1  # x
-        grid[..., 1] = 2 * (points[..., 1] / (H - 1)) - 1  # y
-        grid[..., 2] = 2 * (points[..., 2] / (D - 1)) - 1  # z
-        grid = grid.view(1, n_rays, num_samples, 1, 3)
-        if False:  # DEBUG
-            print("[INFO] Grid shape:", grid.shape, "Z shape:", Z.shape)
-        # Sampling
-        ray_values = F.grid_sample(
-            Z, grid, mode='bilinear', padding_mode='border', align_corners=True
-        ).squeeze()
-        return ray_values
+        # Z = Z.unsqueeze(0).unsqueeze(0).contiguous().float()  # (1, 1, D, H, W)
+        # grid = torch.empty_like(points, dtype=torch.float32, device=volume.device)
+        # grid[..., 0] = 2 * (points[..., 0] / (W - 1)) - 1  # x
+        # grid[..., 1] = 2 * (points[..., 1] / (H - 1)) - 1  # y
+        # grid[..., 2] = 2 * (points[..., 2] / (D - 1)) - 1  # z
+
+        # grid = grid.view(1, n_rays, num_samples, 1, 3)
+        # if False:  # DEBUG
+        #     print("[INFO] Grid shape:", grid.shape, "Z shape:", Z.shape)
+        # # Sampling
+        # # ray_values = F.grid_sample(
+        # #     Z, grid, mode='nearest'
+        # # ).squeeze()
+        x,y,z, ray_values = custom_nearest_sampler(volume, points)
+        print("[INFO] Ray values shape:", ray_values.shape)
+        return x,y,z, ray_values
     
     def trace_rays(self, volume, sources, directions, num_samples):
         """
@@ -220,7 +224,7 @@ class UltrasoundRenderer:
             angle: fan angle (degrees), used for plotting geometry
         """
         # 1. Simulate reflection coefficients
-        R = self.simulate_rays(
+        x,y,z, R = self.simulate_rays(
             volume=volume,
             source=source,
             directions=directions,
@@ -236,7 +240,8 @@ class UltrasoundRenderer:
             R = R[:, start:]
             print("[INFO] Starting from sample index:", start, "(for instance, to skip bones)")
         
-        # DEPRECATED THIS: # processed_output = propagate_full_rays_batched(R)  # (N_rays, num_samples-1, 2*(num_samples-1))
+        # DEPRECATED THIS: 
+        # processed_output = propagate_full_rays_batched(R)  # (N_rays, num_samples-1, 2*(num_samples-1))
 
         processed_output = compute_gaussian_pulse(R, length=20, sigma=2) # (N_rays, num_samples-1)s
         # processed_output = R
@@ -266,74 +271,8 @@ class UltrasoundRenderer:
             processed_output = F.pad(processed_output, pad=(start, 0, 0, 0), mode='constant', value=0)
             print("[INFO] Padded output to start from sample index:", start, processed_output.shape)
         
-        # 2. Convert to numpy
-        n_rays, n_samples = processed_output.shape
-
-        # # 3. Compute ray geometry
-        # source_2d = torch.tensor([128.0, 0.0])  # (x, z), assuming 2D fan centered at (128, 0)
-        # thetas = torch.deg2rad(torch.linspace(-angle, angle, n_rays))  # shape (n_rays,)
-        ray_len = n_samples  # number of points along each ray
-
-        # Vectorized generation of all points
-        steps = np.arange(ray_len)  # (n_samples,)
-
-        # # Ray directions in 2D
-        # directions_xz = torch.stack([
-        #     torch.sin(thetas),  # (n_rays,)
-        #     torch.cos(thetas)
-        # ], dim=1)  # (n_rays, 2)
-
-        # Modifs Gabi push pour Noé
-        source_2d = source[:2]
-        directions_xz = directions[:, :2]  # Use the first two components for 2D projection
-        # Expand dimensions
-        steps = torch.arange(n_samples, dtype=torch.float32, device=device).view(1, n_samples, 1)  # (1, n_samples, 1)
-        directions_xz = directions_xz.view(n_rays, 1, 2)                             # (n_rays, 1, 2)
-
-        points = source_2d.view(1, 1, 2) + steps * directions_xz  # (n_rays, n_samples, 2)
-
-        points = points[:, start:, :]  # slice to start index if needed
-        processed_output = processed_output[:, start:]  # slice to start index if needed
-        x_coords = points[..., 0].flatten()
-        z_coords = points[..., 1].flatten()
-        intensities = processed_output.flatten()
-        if not plot:
-            return x_coords, z_coords, intensities
-        
-        # -- 4. Plot
-        if ax is None:
-            fig, ax = plt.subplots(figsize=(6, 6))
-        
-        ax.set_facecolor("black")
-        ## SET CUSTOM VMIN VMAX BASED ON HISTOGRAM
-
-        threshold_min = 0
-        threshold_max = intensities.max()
-
-        if threshold_max < 0:
-            warnings.warn("Intensity values contain negative values. Displaying full range.")
-            threshold_min = intensities.min()
-
-        print(f"Intensity range: {threshold_min:.4f} to {threshold_max:.4f}")
-        if ax is None:
-            fig, ax = plt.subplots()
-            plt.subplots_adjust(left=0.1, bottom=0.25)
-
-        # Initial plot
-        scatter = ax.scatter(
-            x_coords, z_coords, c=intensities,
-            cmap=cmap if cmap is not None else 'gray',
-            s=2, vmin=threshold_min, vmax=threshold_max * 1.5
-        )
-        ax.set_aspect('equal')
-        ax.set_title("Fan-shaped Ultrasound Frame")
-
-        ax.set_xticks([])
-        ax.set_yticks([])
-
-        # 4. 
-        return processed_output_torch, scatter
-
+        return x[:,start:], y[:,start:], z[:,start:], processed_output_torch
+    
     @staticmethod
     def plot_frame(frame: torch.Tensor, ax: plt.Axes = None):
         """
@@ -386,8 +325,6 @@ class UltrasoundRenderer:
         plt.colorbar(label='Echo intensity')
         plt.show()
    
-
-    
     def plot_sector_bmode(self,
                         bmode: np.ndarray,
                         angles: np.ndarray,
@@ -539,35 +476,6 @@ def compute_gaussian_pulse(refLR: torch.Tensor, spacing: float = 1.0, c: float =
     
     return echo_signals.squeeze(1)  # (B, N)
 
-def rasterize_fan(x_coords, z_coords, intensities, output_shape=(256, 256)):
-    """
-    Converts scatter plot data into a 2D image array via interpolation.
-    
-    Args:
-        x_coords, z_coords: 1D arrays of coordinates
-        intensities: 1D array of intensities at those points
-        output_shape: desired shape of the image (H, W)
-        
-    Returns:
-        2D numpy array of shape (H, W)
-    """
-    x_coords = np.asarray(x_coords)
-    z_coords = np.asarray(z_coords)
-    intensities = np.asarray(intensities)
-
-    # Create grid
-    grid_x, grid_z = np.meshgrid(x_coords, z_coords)
-
-    # Interpolate intensities onto the grid
-    img = griddata(
-        points=np.stack((x_coords, z_coords), axis=-1),
-        values=intensities,
-        xi=(grid_x, grid_z),
-        method='linear',
-        fill_value=0  # or np.nan
-    )
-    return img
-
 def gaussian_pulse(length: int, sigma: float) -> np.ndarray:
     """
     Generate a 1D Gaussian pulse centered at 0.
@@ -712,6 +620,34 @@ def add_depth_dependent_axial_blur_np(
         blurred[:, z] = np.mean(image[:, start:end], axis=1)
 
     return blurred
+def rasterize_fan(x_coords, z_coords, intensities, output_shape=(256, 256)):
+    """
+    Converts scatter plot data into a 2D image array via interpolation.
+    
+    Args:
+        x_coords, z_coords: 1D arrays of coordinates
+        intensities: 1D array of intensities at those points
+        output_shape: desired shape of the image (H, W)
+        
+    Returns:
+        2D numpy array of shape (H, W)
+    """
+    x_coords = np.asarray(x_coords)
+    z_coords = np.asarray(z_coords)
+    intensities = np.asarray(intensities)
+
+    # Create grid
+    grid_x, grid_z = np.meshgrid(x_coords, z_coords)
+
+    # Interpolate intensities onto the grid
+    img = griddata(
+        points=np.stack((x_coords, z_coords), axis=-1),
+        values=intensities,
+        xi=(grid_x, grid_z),
+        method='linear',
+        fill_value=0  # or np.nan
+    )
+    return img
 
 def rotate_around_apex(x, 
                        z, 
@@ -752,31 +688,40 @@ def rotate_around_apex(x,
     z_rot = rotated[1] + apex[1]
     return x_rot, z_rot
 
-def differentiable_splat(x, z, intensities, H=256, W=256, sigma=2.0):
+def differentiable_splat(x, y, z, intensities, H=256, W=256, sigma=2.0):
     """
-    Efficient differentiable splatting with convolution-based interpolation.
-    - x, z must be in [0, W-1] and [0, H-1]
+    Differentiable splatting onto the 2D plane of highest variance.
+    - x, y, z: tensors of same shape, coordinates in [0, size-1] for each axis
+    - intensities: tensor of same shape
+    - H, W: output image height and width (for axis0 and axis1)
     """
-    device = x.device
-    x = x.to(dtype=torch.float32)
-    z = z.to(dtype=torch.float32)
+    device = intensities.device
+    coords = [x, y, z]
+    # Compute variance for each axis
+    variances = [c.float().var().item() for c in coords]
+    print(f"[INFO] Variances: {variances}")
+    # Get indices of two axes with highest variance
+    axis0, axis1 = sorted(range(3), key=lambda i: -variances[i])[:2]
+
+    coord0 = coords[axis0].to(dtype=torch.float32)
+    coord1 = coords[axis1].to(dtype=torch.float32)
     intensities = intensities.to(dtype=torch.float32)
 
     image = torch.zeros((1, 1, H, W), device=device)
     weight = torch.zeros_like(image)
 
     # Discrete pixel locations
-    x_idx = torch.clamp(x.round().long(), 0, W - 1)
-    z_idx = torch.clamp(z.round().long(), 0, H - 1)
+    idx0 = torch.clamp(coord0.round().long(), 0, W - 1)
+    idx1 = torch.clamp(coord1.round().long(), 0, H - 1)
 
     # Splat intensity and weight
-    image[0, 0, z_idx, x_idx] += intensities
-    weight[0, 0, z_idx, x_idx] += 1
+    image[0, 0, idx1, idx0] += intensities
+    weight[0, 0, idx1, idx0] += 1
 
     # Define a Gaussian kernel
     size = int(6 * sigma) | 1  # ensure odd size
-    coords = torch.arange(size, device=device) - size // 2
-    kernel_1d = torch.exp(-0.5 * (coords / sigma) ** 2)
+    coords_kernel = torch.arange(size, device=device) - size // 2
+    kernel_1d = torch.exp(-0.5 * (coords_kernel / sigma) ** 2)
     kernel_1d = kernel_1d / kernel_1d.sum()
     kernel_2d = kernel_1d[:, None] @ kernel_1d[None, :]
     kernel_2d = kernel_2d.to(device).unsqueeze(0).unsqueeze(0)  # shape (1,1,K,K)
@@ -786,4 +731,65 @@ def differentiable_splat(x, z, intensities, H=256, W=256, sigma=2.0):
     blurred_weight = F.conv2d(weight, kernel_2d, padding=size//2)
     output = blurred_img / (blurred_weight + 1e-8)
 
-    return output[0, 0]  # Return (H, W) image
+    return output[0, 0].T
+
+def custom_nearest_sampler(Z, points, visualize=True):
+    """
+    Args:
+        Z: torch.Tensor of shape (D, H, W)
+        points: torch.Tensor of shape (..., 3), in pixel coordinates (x, y, z)
+        visualize: bool, whether to show a visualization of the sampled points
+    Returns:
+        ray_values: torch.Tensor of shape (...), sampled values
+    """
+    D, H, W = Z.shape
+    points = points.float()
+    batch_size, num_samples, _ = points.shape
+        
+    x = torch.clamp(points[..., 0].round().long().flatten(), 0, D - 1)
+    y = torch.clamp(points[..., 1].round().long().flatten(), 0, H - 1)
+    z = torch.clamp(points[..., 2].round().long().flatten(), 0, W - 1)
+    values = Z[x,y,z]  # shape: [batch_size * num_samples]
+    ray_values = values.view(batch_size, num_samples)
+    
+
+    if visualize:
+        # Compute variance to pick projection plane
+        print("[INFO] Visualizing sampled points in 3D volume")
+        var_x = x.float().var().item()
+        var_y = y.float().var().item()
+        var_z = z.float().var().item()
+        variances = [var_x, var_y, var_z]
+        print(f"[INFO] Variances: x={var_x:.4f}, y={var_y:.4f}, z={var_z:.4f}")
+        drop_axis = variances.index(min(variances))
+        axis_names = ['x', 'y', 'z']
+        keep_axes = [i for i in range(3) if i != drop_axis]
+        ax0, ax1 = keep_axes
+        mapping = {'x': x, 'y': y, 'z': z}
+        proj0 = mapping[axis_names[ax0]].flatten().cpu()
+        proj1 = mapping[axis_names[ax1]].flatten().cpu()
+        sampled_vals = ray_values.flatten().cpu()
+
+        vol_np = Z.cpu().numpy()
+        slice_idx = int(points.flatten(0, -2)[0, drop_axis].item())
+        slice_idx = max(0, min(slice_idx, Z.shape[drop_axis] - 1))
+
+        if drop_axis == 0:
+            slice_img = vol_np[slice_idx, :, :]
+        elif drop_axis == 1:
+            slice_img = vol_np[:, slice_idx, :]
+        else:
+            slice_img = vol_np[:, :, slice_idx]
+
+        plt.figure(figsize=(10, 10))
+        plt.imshow(slice_img, cmap='gray', alpha=0.5, origin='lower')
+        plt.scatter(proj1, proj0, s=8, c=sampled_vals, cmap='jet', alpha=0.7)
+        plt.title(f"Sampled points in {axis_names[ax0]}-{axis_names[ax1]} plane")
+        plt.xlabel(axis_names[ax0])
+        plt.ylabel(axis_names[ax1])
+        plt.axis("off")
+        plt.show()
+    x = x.view(batch_size, num_samples)
+    y = y.view(batch_size, num_samples)
+    z = z.view(batch_size, num_samples)
+    return x,y,z, ray_values
