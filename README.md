@@ -28,6 +28,24 @@ The goal is to learn a differentiable forward model of ultrasound generation tha
 
 Each file is a **3D matrix of size `256×256×256`** representing the brain volume in 3D space, with **0.5 mm voxel spacing**.
 
+## 
+
+About the contents of the github: as this project is still ongoing, the files are a little bit rough aruond the edges. Interesting files in notebooks and src include:
+
+notebooks:
+- [DEMO] REUBEN DATA * : rendering of our ray propagation model through RemindReg datasets (these are result files)
+- [DEMO] Modeling Choices : demo of our ray propagation model
+- [DEMO] Train MRI to Impedance MLP - GPU: simple MLP to try and backprop to the correct MRI -> Acoustic Impedance function.
+
+src:
+- renderer.py: main logic file. The plot_beam_frame function is the one responsible for the rendering.
+- cone.py / utils.py: utility files with little useful functions
+
+## Additional Documentation
+
+- [Blog Post](blogpost.md): Overview of the project's motivation, challenges, and future directions.
+- [Forward Physics](forward_physics.md): Detailed explanation of the forward modeling approach used in this project.
+- [Ultrasound Physics](USphysics.md): In-depth discussion of the acoustic physics principles underlying the simulation.
 
 ## Useful Resources
 

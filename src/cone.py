@@ -131,6 +131,7 @@ def plot_us_with_affine_lines(us_slice: np.ndarray,
     _, W = us_slice.shape
     plt.figure(figsize=(6, 6))
     plt.imshow(us_slice, cmap="gray", origin="lower")
+    plt.imshow(us_slice == 0, cmap="gray", origin="lower", alpha=0.2)  # Highlight zero values
     plt.title("US slice with affine lines to adjust")
     plt.xlim(left=0)
     plt.ylim(bottom=0)
@@ -174,14 +175,14 @@ def plot_overlay_cone(us_slice: np.ndarray, mask_cone: np.ndarray, ax=None, titl
     H, W = us_slice.shape
     overlay = np.zeros((H, W, 4), dtype=float)
     overlay[..., 0] = 1  # Red channel
-    overlay[..., 3] = mask_cone.T * 0.3  # Alpha channel (30% opacity)
+    overlay[..., 3] = mask_cone * 0.3  # Alpha channel (30% opacity)
     if ax is None:
         plt.figure(figsize=(6, 6))
         ax = plt.gca()
     ax.imshow(us_slice, cmap="gray", origin="lower")
     ax.imshow(overlay, origin="lower")
     ax.set_title(title)
-    ax.axis('off')
+    # ax.axis('off')
 
 def cone_us_to_mri_world(
         apex_us_vox,           # (x, y, z) in US voxel coordinates
@@ -217,7 +218,7 @@ def plot_median_line(us_slice, apex, direction_vector, d1, d2, ax=None):
     # Calculate segment endpoints
     p1 = (x0 + d1 * dx, y0 + d1 * dy)
     p2 = (x0 + d2 * dx, y0 + d2 * dy)
-    
+    print(apex, direction_vector, p1, p2)
     ax.imshow(us_slice, cmap='gray', origin='lower')
     ax.set_xlim(left=0)
     ax.set_ylim(bottom=0)
@@ -236,7 +237,7 @@ def plot_median_line(us_slice, apex, direction_vector, d1, d2, ax=None):
     
     ax.set_title("Ultrasound Median Line")
     ax.legend()
-    ax.axis('off')
+    # ax.axis('off')
 
 def generate_cone_directions(direction_mri_world, opening_angle, n_rays):
     """

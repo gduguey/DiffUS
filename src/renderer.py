@@ -58,7 +58,8 @@ class UltrasoundRenderer:
             volume=volume, 
             source=source, 
             directions=directions, 
-            num_samples=num_samples)
+            num_samples=num_samples,
+            start=start)
         if impedances.ndim == 1:
             impedances = impedances.unsqueeze(0)
         Z1 = impedances[:, :-1]  # (num_samples-1)
@@ -90,7 +91,7 @@ class UltrasoundRenderer:
                 volume: torch.Tensor, 
                 source: torch.Tensor, 
                 directions: torch.Tensor, 
-                num_samples: int) -> torch.Tensor:
+                num_samples: int, start: int) -> torch.Tensor:
         """
         Simulates ray tracing through a 3D volume using batched grid_sample.
         
@@ -174,7 +175,7 @@ class UltrasoundRenderer:
         # # ray_values = F.grid_sample(
         # #     Z, grid, mode='nearest'
         # # ).squeeze()
-        x,y,z, ray_values = custom_nearest_sampler(volume, points)
+        x,y,z, ray_values = custom_nearest_sampler(volume, points, start=start)
         print("[INFO] Ray values shape:", ray_values.shape)
         return x,y,z, ray_values
     
@@ -207,10 +208,10 @@ class UltrasoundRenderer:
         artifacts: bool = False,
         ax: plt.Axes = None,
         cmap: bool = None,
-        std_radial: float = 0.000002,
-        std_local: float = 0.0000005,
-        max_sigma: float = 2.0,
-        alpha: float = 1.5,
+        std_radial: float = 0.01,
+        std_local: float = 0.15,
+        max_sigma: float = 4.0,
+        alpha: float = 5,
         start: float = 0,
         **kwargs  # for future extensibility, e.g. MRI=False
     ):
@@ -229,6 +230,7 @@ class UltrasoundRenderer:
             source=source,
             directions=directions,
             MRI=False,
+            start=start
         ) # This samples the volume 
         device = R.device
         # Start index handling
@@ -238,16 +240,20 @@ class UltrasoundRenderer:
             start = max(0, start)  # ensure non-negative index
         if start > 0:
             R = R[:, start:]
+            median_first = R[:, 0].median()
+            R[:, 0] = median_first
             print("[INFO] Starting from sample index:", start, "(for instance, to skip bones)")
         
         # DEPRECATED THIS: 
         # processed_output = propagate_full_rays_batched(R)  # (N_rays, num_samples-1, 2*(num_samples-1))
+#
+        # processed_output = compute_gaussian_pulse(R, length=20, sigma=4)[:,:-1] # (N_rays, num_samples-1)s
+        processed_output, _ = compute_echo_traces(R)
+        print("[INFO] Processed output shape:", processed_output.shape)
+        # processed_output = torch.concat((R, torch.zeros((R.shape[0], 1), device=device)), dim=1)  # pad to match num_samples
 
-        processed_output = compute_gaussian_pulse(R, length=20, sigma=2) # (N_rays, num_samples-1)s
-        # processed_output = R
-        
         # Attenuation model
-        attenuation_coeff = 0.001
+        attenuation_coeff = self.attenuation_coeff
         depths = torch.arange(processed_output.shape[1], device=device).float()
         attenuation = torch.exp(-attenuation_coeff * depths)  # shape (num_samples,)
         processed_output = processed_output * attenuation[None, :]  # shape (N_rays, num_samples)
@@ -266,12 +272,7 @@ class UltrasoundRenderer:
             # sharpen
             processed_output = sharpen_np(processed_output, alpha=alpha)   
         
-        if start > 0:
-            # processed_output = np.pad(processed_output, ((0, 0), (start, 0)), mode='constant', constant_values=0)
-            processed_output = F.pad(processed_output, pad=(start, 0, 0, 0), mode='constant', value=0)
-            print("[INFO] Padded output to start from sample index:", start, processed_output.shape)
-        
-        return x[:,start:], y[:,start:], z[:,start:], processed_output_torch
+        return x[:,start:], y[:,start:], z[:,start:], processed_output
     
     @staticmethod
     def plot_frame(frame: torch.Tensor, ax: plt.Axes = None):
@@ -375,10 +376,10 @@ def prop_single_ray(refLR: torch.Tensor, traLR: torch.Tensor = None, traRL: torc
     -------
     w : (B, 2*(N+1)) laid out as [g0, d0, g1, d1, …, gN, dN]
     """
-    B, N = refLR.shape
+    B, N  = refLR.shape
     traLR = 1 + refLR              # t_il
     traRL = 1 - refLR              # t_ir
-    refRL = -refLR                 # r_rl  (OK only if impedances equal)
+    refRL = refLR                 # r_rl  (OK only if impedances equal)
 
     size = 2 * (N + 1)
     A = torch.zeros((B, size, size), dtype=refLR.dtype, device=refLR.device)
@@ -404,6 +405,7 @@ def prop_single_ray(refLR: torch.Tensor, traLR: torch.Tensor = None, traRL: torc
         A[:, di, di]     =  1                     # +d_i
 
     w = torch.linalg.solve(A, b)                  # (B, 2*(N+1))
+    w = torch.nan_to_num(w, nan=0.0)
     # print(w)
     return w
 
@@ -429,7 +431,7 @@ def propagate_full_rays_batched(refLR: torch.Tensor) -> torch.Tensor:
         total.append(w)
         
     # return total
-    stacked_d0 =  torch.stack(d0_per_depth, dim=1)
+    stacked_d0 = torch.stack(d0_per_depth, dim=1)
     stacked_d0 = torch.cumsum(stacked_d0, dim=1)  # cumulative sum along the depth axis
     return stacked_d0
 
@@ -589,14 +591,14 @@ def add_depth_dependent_lateral_blur_np(
     dont l'écart‑type augmente linéairement avec la profondeur.
     """
     n_rays, n_samples = image.shape
-    blurred = image.copy()
+    blurred = image.numpy()
 
     for z in range(n_samples):
         sigma = max_sigma * (z / (n_samples - 1)) if z > 0 else 1e-8
         # flou sur chaque colonne (constante en z)
         blurred[:, z] = gaussian_filter1d(blurred[:, z], sigma)
 
-    return blurred
+    return torch.from_numpy(blurred)
 
 def add_depth_dependent_axial_blur_np(
     image: np.ndarray,
@@ -620,6 +622,7 @@ def add_depth_dependent_axial_blur_np(
         blurred[:, z] = np.mean(image[:, start:end], axis=1)
 
     return blurred
+
 def rasterize_fan(x_coords, z_coords, intensities, output_shape=(256, 256)):
     """
     Converts scatter plot data into a 2D image array via interpolation.
@@ -733,7 +736,9 @@ def differentiable_splat(x, y, z, intensities, H=256, W=256, sigma=2.0):
 
     return output[0, 0].T
 
-def custom_nearest_sampler(Z, points, visualize=True):
+## Sampler
+
+def custom_nearest_sampler(Z, points, visualize=True, sampler='prop', start=100):
     """
     Args:
         Z: torch.Tensor of shape (D, H, W)
@@ -749,8 +754,9 @@ def custom_nearest_sampler(Z, points, visualize=True):
     x = torch.clamp(points[..., 0].round().long().flatten(), 0, D - 1)
     y = torch.clamp(points[..., 1].round().long().flatten(), 0, H - 1)
     z = torch.clamp(points[..., 2].round().long().flatten(), 0, W - 1)
-    values = Z[x,y,z]  # shape: [batch_size * num_samples]
-    ray_values = values.view(batch_size, num_samples)
+    if sampler == 'prop':
+        values = Z[x,y,z]  # shape: [batch_size * num_samples]
+        ray_values = values.view(batch_size, num_samples)
     
 
     if visualize:
@@ -765,10 +771,14 @@ def custom_nearest_sampler(Z, points, visualize=True):
         axis_names = ['x', 'y', 'z']
         keep_axes = [i for i in range(3) if i != drop_axis]
         ax0, ax1 = keep_axes
-        mapping = {'x': x, 'y': y, 'z': z}
+        x_ex = x.view(batch_size, num_samples)[:, start:].flatten()
+        y_ex = y.view(batch_size, num_samples)[:, start:].flatten()
+        z_ex = z.view(batch_size, num_samples)[:, start:].flatten()
+        mapping = {'x': x_ex, 'y': y_ex, 'z': z_ex}
+
         proj0 = mapping[axis_names[ax0]].flatten().cpu()
         proj1 = mapping[axis_names[ax1]].flatten().cpu()
-        sampled_vals = ray_values.flatten().cpu()
+        sampled_vals = ray_values[:, start:].flatten().cpu()
 
         vol_np = Z.cpu().numpy()
         slice_idx = int(points.flatten(0, -2)[0, drop_axis].item())
@@ -781,14 +791,28 @@ def custom_nearest_sampler(Z, points, visualize=True):
         else:
             slice_img = vol_np[:, :, slice_idx]
 
-        plt.figure(figsize=(10, 10))
-        plt.imshow(slice_img, cmap='gray', alpha=0.5, origin='lower')
-        plt.scatter(proj1, proj0, s=8, c=sampled_vals, cmap='jet', alpha=0.7)
+        plt.figure(figsize=(4, 4    ))
+        plt.imshow(slice_img, cmap='gray', alpha=1, origin='lower')
+        plt.scatter(proj1, proj0, s=8, c=sampled_vals, cmap='jet', alpha=0.4)
         plt.title(f"Sampled points in {axis_names[ax0]}-{axis_names[ax1]} plane")
         plt.xlabel(axis_names[ax0])
         plt.ylabel(axis_names[ax1])
         plt.axis("off")
         plt.show()
+    if sampler != 'prop':
+        # Ensure Z is in (D, H, W) order
+        Z = Z.unsqueeze(0).unsqueeze(0).contiguous().float()  # (1, 1, D, H, W)
+        grid = torch.empty_like(points, dtype=torch.float32, device=Z.device)
+        grid[..., 0] = 2 * (points[..., 2] / (W - 1)) - 1  # x
+        grid[..., 1] = 2 * (points[..., 1] / (H - 1)) - 1  # y
+        grid[..., 2] = 2 * (points[..., 0] / (D - 1)) - 1  # z
+
+        grid = grid.view(1, batch_size, num_samples, 1, 3)
+        if True:  # DEBUG
+            print("[INFO] Grid shape:", grid.shape, "Z shape:", Z.shape)
+        ray_values = F.grid_sample(
+            Z, grid, mode='nearest'
+        ).squeeze()
     x = x.view(batch_size, num_samples)
     y = y.view(batch_size, num_samples)
     z = z.view(batch_size, num_samples)
