@@ -1,18 +1,26 @@
+'''
+This file contains functions for mapping points between MRI and ultrasound (US) spaces,
+visualizing aligned slices, computing cone parameters, and generating cone directions.
+'''
+
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-import nibabel as nib
 import torch
 import torch.nn.functional as F
-from sklearn.cluster import KMeans
-import cv2
 
 def voxel_to_world(idx_ijk: np.ndarray, affine: np.ndarray) -> np.ndarray:
+    """
+    Convert voxel indices to world coordinates using the affine transformation.
+    """
     ijk1 = np.concatenate((idx_ijk, [1.0]))
     xyz1 = affine.dot(ijk1)
     return xyz1[:3]
 
 def world_to_voxel(xyz: np.ndarray, affine: np.ndarray) -> np.ndarray:
+    """
+    Convert world coordinates to voxel indices using the inverse of the affine transformation.
+    """
     inv_aff = np.linalg.inv(affine)
     xyz1 = np.concatenate((xyz, [1.0]))
     ijk1 = inv_aff.dot(xyz1)
@@ -20,20 +28,29 @@ def world_to_voxel(xyz: np.ndarray, affine: np.ndarray) -> np.ndarray:
 
 def mri_to_us_point(i_mri: int,
                       j_mri: int,
-                      slice_idx: int,
+                      k_mri: int,
                       T1_vol: np.ndarray,
                       T1_affine: np.ndarray,
                       US_vol: np.ndarray,
-                      US_affine: np.ndarray):
+                      US_affine: np.ndarray,
+                      orientation: str = "Axial") -> tuple:
+    """
+    Map a voxel coordinate from MRI to US space and extract the corresponding US slice and indices.
+    """
     D_t1, H_t1, W_t1 = T1_vol.shape
-    if not (0 <= slice_idx < W_t1 and 0 <= i_mri < D_t1 and 0 <= j_mri < H_t1):
-        raise ValueError(f"T1 : indices are out of range (i={i_mri}, j={j_mri}, k={slice_idx})")
-    mri_idx_3d = np.array([i_mri, j_mri, slice_idx])
+    if not (0 <= k_mri < W_t1 and 0 <= i_mri < D_t1 and 0 <= j_mri < H_t1):
+        raise ValueError(f"T1 : indices are out of range (i={i_mri}, j={j_mri}, k={k_mri})")
+    mri_idx_3d = np.array([i_mri, j_mri, k_mri])
     world_pt = voxel_to_world(mri_idx_3d, T1_affine)
     us_idx_f = world_to_voxel(world_pt, US_affine)
     us_idx = np.round(us_idx_f).astype(int)
-    _, _, k_us = us_idx
-    us_slice = US_vol[:, :, k_us]  # axial slice in US (H_us × W_us)
+    i_us, j_us, k_us = us_idx
+    if orientation == "Axial":
+        us_slice = US_vol[:, :, k_us]
+    elif orientation == "Coronal":
+        us_slice = US_vol[:, j_us, :]
+    elif orientation == "Sagittal":
+        us_slice = US_vol[i_us, :, :]
 
     return us_slice, us_idx
 
@@ -43,7 +60,8 @@ def us_to_mri_point(i_us: int,
                     US_vol: np.ndarray,
                     US_affine: np.ndarray,
                     T1_vol: np.ndarray,
-                    T1_affine: np.ndarray):
+                    T1_affine: np.ndarray,
+                    orientation: str = "Axial") -> tuple:
     """
     Map a voxel coordinate from US to MRI space and extract the corresponding MRI slice and indices.
     """
@@ -55,17 +73,39 @@ def us_to_mri_point(i_us: int,
     mri_idx_f = world_to_voxel(world_pt, T1_affine)
     mri_idx = np.round(mri_idx_f).astype(int)
     k_mri, i_mri, j_mri = mri_idx
-    mri_slice = T1_vol[k_mri, :, :]  # axial slice in MRI (H_mri × W_mri)
+    if orientation == "Axial":
+        mri_slice = T1_vol[:, :, k_mri]
+    elif orientation == "Coronal":
+        mri_slice = T1_vol[j_mri, :, :]
+    elif orientation == "Sagittal":
+        mri_slice = T1_vol[i_mri, :, :]
+    
     return mri_slice, mri_idx
 
-def plot_mri_us_aligned(i_mri: int, j_mri: int, slice_idx: int, T1_vol: np.ndarray, us_slice: np.ndarray, us_idx: np.ndarray):  
-    t1_slice = T1_vol[:, :, slice_idx]
+def plot_mri_us_aligned(i_mri: int, j_mri: int, k_mri: int, T1_vol: np.ndarray, us_slice: np.ndarray, us_idx: np.ndarray, orientation: str = "Axial"):  
+    """
+    Visualize the aligned MRI and US slices with markers at the specified indices.
+    Parameters:
+    - i_mri: MRI slice index
+    - j_mri: MRI slice index
+    - slice_idx: MRI slice index
+    - T1_vol: 3D MRI volume
+    - us_slice: 2D US slice
+    - us_idx: US voxel indices
+    """
+    if orientation == "Axial":
+        t1_slice = T1_vol[:, :, k_mri]
+    elif orientation == "Coronal":
+        t1_slice = T1_vol[:, j_mri, :]
+    elif orientation == "Sagittal":
+        t1_slice = T1_vol[i_mri, :, :]
+    
     i_us, j_us, k_us = us_idx
     fig, axes = plt.subplots(1, 2, figsize=(12, 6))
 
     axes[0].imshow(t1_slice, cmap='gray', origin='lower')
     axes[0].plot(j_mri, i_mri, 'ro', markersize=6)
-    axes[0].set_title(f"T1 – slice k={slice_idx}")
+    axes[0].set_title(f"T1 – slice k={k_mri}")
     axes[0].axis('off')
 
     axes[1].imshow(us_slice, cmap='gray', origin='lower')
@@ -76,8 +116,16 @@ def plot_mri_us_aligned(i_mri: int, j_mri: int, slice_idx: int, T1_vol: np.ndarr
     plt.tight_layout()
     plt.show()
 
-def plot_mri_us_aligned_0(i_us: int, j_us: int, slice_idx: int, us_vol: np.ndarray, mri_slice: np.ndarray, mri_idx: np.ndarray):  
-    us_slice = us_vol[slice_idx, :, :]
+def plot_mri_us_aligned_0(i_us: int, j_us: int, k_us: int, us_vol: np.ndarray, mri_slice: np.ndarray, mri_idx: np.ndarray, orientation: str = "Axial"):
+    """
+    Plot aligned MRI and US slices for a specific axial slice.
+    """
+    if orientation == "Axial":
+        us_slice = us_vol[k_us, :, :]
+    elif orientation == "Coronal":
+        us_slice = us_vol[:, k_us, :]
+    elif orientation == "Sagittal":
+        us_slice = us_vol[:, :, k_us]
     k_mri, i_mri, j_mri = mri_idx
     fig, axes = plt.subplots(1, 2, figsize=(12, 6))
 
@@ -88,17 +136,18 @@ def plot_mri_us_aligned_0(i_us: int, j_us: int, slice_idx: int, us_vol: np.ndarr
 
     axes[1].imshow(us_slice, cmap='gray', origin='lower')
     axes[1].plot(i_us, j_us, 'ro', markersize=6)
-    axes[1].set_title(f"US  – slice k={slice_idx}")
+    axes[1].set_title(f"US  – slice k={k_us}")
     axes[1].axis('off')
 
     plt.tight_layout()
     plt.show()
 
 
-def compute_us_apex_and_direction(m_left, b_left, m_right, b_right):
+def compute_us_apex_and_direction(m_left: float, b_left: float, m_right: float, b_right: float):
     # Compute intersection point (apex)
     if np.isclose(m_left, m_right):
         raise RuntimeError("The slopes are nearly equal; no defined intersection.")
+    
     x0 = (b_right - b_left) / (m_left - m_right)
     y0 = m_left * x0 + b_left
 
@@ -128,6 +177,10 @@ def compute_us_apex_and_direction(m_left, b_left, m_right, b_right):
 def plot_us_with_affine_lines(us_slice: np.ndarray,
                               m_left: float, b_left: float,
                               m_right: float, b_right: float):
+    """
+    Plot a US slice with affine lines representing the left and right boundaries of the cone.
+    The lines are defined by their slopes (m_left, m_right) and intercepts (b_left, b_right).
+    """
     _, W = us_slice.shape
     plt.figure(figsize=(6, 6))
     plt.imshow(us_slice, cmap="gray", origin="lower")
@@ -146,6 +199,10 @@ def overlay_cone(us_slice: np.ndarray,
                     apex: np.ndarray,
                     direction_vector: np.ndarray,
                     opening_angle: float):
+    """
+    Return the red cone above the ultrasound slice.
+    The cone is defined by its apex, direction vector, and opening angle.
+    """
     H, W = us_slice.shape
     x0, y0 = apex
     
@@ -172,6 +229,10 @@ def overlay_cone(us_slice: np.ndarray,
     return mask_cone
 
 def plot_overlay_cone(us_slice: np.ndarray, mask_cone: np.ndarray, ax=None, title="US slice with cone overlay"):
+    """
+    Plot the ultrasound slice with a red cone overlay.
+    The cone is defined by the mask_cone, which is a boolean array indicating cone points.
+    """
     H, W = us_slice.shape
     overlay = np.zeros((H, W, 4), dtype=float)
     overlay[..., 0] = 1  # Red channel
@@ -190,6 +251,9 @@ def cone_us_to_mri_world(
         US_affine,             # 4x4
         T1_affine              # 4x4
     ):
+    """
+    Convert a point and direction vector from US voxel coordinates to MRI voxel coordinates.
+    """
 
     # Transform apex from US voxel to MRI voxel coordinates
     apex_world = voxel_to_world(apex_us_vox, US_affine)  # Convert to world coordinates
@@ -208,17 +272,36 @@ def cone_us_to_mri_world(
 
     return apex_t1_vox, direction_vec_t1
 
-def plot_median_line(us_slice, apex, direction_vector, d1, d2, ax=None):
+def plot_median_line(us_slice, apex, direction_vector, d1=0, d2=0, ax=None):
+    """
+    Plot the median line on the ultrasound slice. This helps visualize the cone's apex and direction, along with the angle of the cone.
+    """
+    if d2 == 0:
+        d2 = us_slice.shape[1]
+
     if ax is None:
         plt.figure(figsize=(8, 6))
         ax = plt.gca()
     x0, y0 = apex
     dx, dy = direction_vector
     
+    # Let's identify the start and end points of the median line segment that are on the mask
+    # Start point
+    for d1 in range(us_slice.shape[1]):
+        p1 = (x0 + d1 * dx, y0 + d1 * dy)
+        if us_slice[int(p1[1]), int(p1[0])]:
+            break
+    
+    # End point
+    for d2 in range(us_slice.shape[1]-1, -1, -1):
+        p2 = (x0 + d2 * dx, y0 + d2 * dy)
+        if us_slice[int(p2[1]), int(p2[0])]:
+            break
+    
     # Calculate segment endpoints
     p1 = (x0 + d1 * dx, y0 + d1 * dy)
     p2 = (x0 + d2 * dx, y0 + d2 * dy)
-    print(apex, direction_vector, p1, p2)
+    
     ax.imshow(us_slice, cmap='gray', origin='lower')
     ax.set_xlim(left=0)
     ax.set_ylim(bottom=0)
@@ -237,7 +320,8 @@ def plot_median_line(us_slice, apex, direction_vector, d1, d2, ax=None):
     
     ax.set_title("Ultrasound Median Line")
     ax.legend()
-    # ax.axis('off')
+
+    return d1+15, d2  # Return distances for further processing
 
 def generate_cone_directions(direction_mri_world, opening_angle, n_rays):
     """
@@ -257,3 +341,35 @@ def generate_cone_directions(direction_mri_world, opening_angle, n_rays):
         v = np.cos(a) * d + np.sin(a) * ortho
         directions.append([v[0], v[1], 0.0])
     return torch.tensor(directions, dtype=torch.float32)
+
+def mask_cone_segment(mask, apex, direction, d1, d2):
+    """
+    Keep only the part of the cone between distances d1 and d2 from the apex along the median direction,
+    with rounded caps at d1 and d2.
+    
+    Parameters:
+        mask: 2D boolean array (the cone mask)
+        apex: (x0, y0) coordinates (float)
+        direction: (dx, dy) unit vector (float)
+        d1, d2: distances from apex (float)
+        
+    Returns:
+        mask_segment: 2D boolean array with rounded cone segment
+    """
+    H, W = mask.shape
+    x0, y0 = apex
+    # Coordinate grid
+    xx, yy = np.meshgrid(np.arange(W), np.arange(H))
+    # Vector from apex to each point
+    vx = xx - x0
+    vy = yy - y0
+
+    # Calculate distance from apex to each point
+    dist = np.sqrt(vx**2 + vy**2)
+    # Create a mask for points within the rounded caps
+
+    rounded_mask_d1 = dist >= d1
+    rounded_mask_d2 = dist <= d2
+    # Combine the masks
+    mask = mask & (rounded_mask_d1 | rounded_mask_d2)
+    return mask & rounded_mask_d1 & rounded_mask_d2
