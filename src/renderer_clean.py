@@ -30,7 +30,8 @@ class UltrasoundRenderer:
         directions: torch.Tensor, 
         num_samples: int = 0,
         MRI:bool=False,
-        start=0) -> torch.Tensor:
+        start=0,
+        plot: bool = False) -> torch.Tensor:
         """
         Simulates a single ray tracing through a 3D volume using batched grid_sample.
         
@@ -51,7 +52,8 @@ class UltrasoundRenderer:
             source=source, 
             directions=directions, 
             num_samples=num_samples,
-            start=start)
+            start=start,
+            plot=plot)
         if impedances.ndim == 1:
             impedances = impedances.unsqueeze(0)
         Z1 = impedances[:, :-1]  # (num_samples-1)
@@ -68,7 +70,8 @@ class UltrasoundRenderer:
                 source: torch.Tensor, 
                 directions: torch.Tensor, 
                 num_samples: int, start: int,
-                verbose: bool = False) -> torch.Tensor:
+                verbose: bool = False,
+                plot:bool=False) -> torch.Tensor:
         """
         Simulates ray tracing through a 3D volume using batched grid_sample.
         
@@ -101,7 +104,7 @@ class UltrasoundRenderer:
         # Trace points
         points = source + steps * directions 
 
-        x,y,z, ray_values = custom_nearest_sampler(volume, points, start=start)
+        x,y,z, ray_values = custom_nearest_sampler(volume, points, start=start, visualize=plot)
         if verbose:
             print("[INFO] Ray values shape:", ray_values.shape)
         return x,y,z, ray_values
@@ -151,12 +154,15 @@ class UltrasoundRenderer:
 
         """
         # 1. Simulate reflection coefficients
+        assert volume.device == source.device == directions.device, "All inputs must be on the same device. We have volume on {}, source on {}, directions on {}".format(
+            volume.device, source.device, directions.device)
         x,y,z, R = self.simulate_rays(
             volume=volume,
             source=source,
             directions=directions,
             MRI=False,
-            start=start
+            start=start,
+            plot=plot,
         ) # This samples the volume, computes reflection coefficients and gives the geometry of the rays
         device = R.device
         
