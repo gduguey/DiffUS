@@ -33,6 +33,7 @@ Features:
 ├── figs/                  # Visualizations used in the paper
 ├── notebooks/             # Example usage
 ├── src/                   # Core implementation
+├── .gitignore
 ├── LICENSE
 ├── README.md
 ├── requirements.txt       # Required Python packages
