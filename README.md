@@ -79,6 +79,14 @@ If you use DiffUS in your work, please cite our paper:
 }
 ``` -->
 
+## Authors
+
+**Affiliation:** Massachusetts Institute of Technology (MIT) 
+
+- **Noe Bertramo** – noe_bert@mit.edu  
+- **Gabriel Duguey** – gduguey@mit.edu  
+- **Vivek Gopalakrishnan** – vivekg@mit.edu  
+
 ## Acknowledgments
 
 We thank Polina Golland, Reuben Dorent, Sandy Wells, and Karimi Davood for their valuable insights on ultrasound imaging and MRI data alignment.

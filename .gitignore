@@ -9,6 +9,10 @@ additional_data/heart_MRI/emidec-dataset-1.0.1/*.txt
 # Ignore all old folders across the repository
 **/old/
 
+# Ignore other unecessary folders
+notebooks/Plots/
+data/mlp_impedance_estimor/
+
 # OS generated files (especially on Windows/macOS)
 .DS_Store
 
