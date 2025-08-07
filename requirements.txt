@@ -1,8 +1,8 @@
-jax[cpu]
-matplotlib
-plotly
-nibabel
-SimpleITK
-torch>=2.0.0
+torch>=2.2
 torchio
-numpy
+numpy>=1.22
+scipy>=1.10
+pandas>=1.4
+matplotlib>=3.6
+nibabel>=5.1
+tqdm>=4.64
