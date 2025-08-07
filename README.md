@@ -1,62 +1,83 @@
-# DiffUS - Differentiable Ultrasound from MRI
+# DiffUS: Differentiable Ultrasound Rendering from Volumetric Imaging
 
-**Authors:** Noé Bertramo, Gabriel Duguey  
-**Institution:** Massachusetts Institute of Technology (MIT)  
-**Date:** Spring 2025  
-**Dataset:** [ReMIND2Reg](https://doi.org/10.7937/3RAG-D070)  
-**Keywords:** Fast Differentiable Simulation · Ultrasound Imaging · MRI · Registration · Alignement
+[![Paper](https://img.shields.io/badge/paper-MICCAI%202025-blue)](https://github.com/gduguey/DiffUS)
+[![License](https://img.shields.io/github/license/gduguey/DiffUS)](LICENSE)
 
----
+This repository contains the implementation of **DiffUS**, a physics-based, differentiable ultrasound renderer that generates realistic B-mode images from volumetric medical imaging data (MRI). DiffUS models acoustic wave propagation using coupled reflection-transmission equations and forms B-mode ultrasound images through a depth-resolved echo extraction procedure. It is fully implemented in PyTorch and supports gradient-based optimization for downstream tasks like image registration and reconstruction.
 
-This project investigates the **differentiable simulation of 2D ultrasound images from 3D MRI volumes** by modeling wave propagation through soft tissues.  
-The goal is to learn a differentiable forward model of ultrasound generation that allows **training on paired MRI/US data** to eventually **recover the source position** or other acquisition parameters through backpropagation.
+<p align="center">
+  <img src="figs/pipeline_zoom.png" alt="DiffUS Pipeline Overview" width="700" style="box-shadow: 0 4px 10px rgba(0,0,0,0.2); border-radius:6px;">
+</p>
 
----
 
-## Paths
 
-[Acoustics Physics](USPhysics.md)
-[Forward Modeling](forward_physics.md)
+## Overview
 
-## File Naming Convention in the ReMIND2Reg dataset
+Intraoperative ultrasound (iUS) offers real-time guidance during surgery but suffers from artifacts and poor alignment with preoperative scans (like MRI). **DiffUS** bridges this gap by:
+- Learning to map MRI intensities to acoustic impedance volumes.
+- Simulating ultrasound propagation with ray tracing and a sparse linear wave system.
+- Rendering fan-shaped B-mode images including realistic artifacts (speckle, depth blur).
+- Supporting differentiable rendering for applications like MRI-to-US registration.
 
-| File suffix       | Modality           | When acquired    | Purpose                          |
-|-------------------|--------------------|------------------|----------------------------------|
-| `_0000.nii.gz`    | 3D ultrasound (iUS) | During surgery   | After tumor resection            |
-| `_0001.nii.gz`    | MRI - ceT1          | Before surgery   | Contrast-enhanced, structural    |
-| `_0002.nii.gz`    | MRI - T2-SPACE      | Before surgery   | Non-contrast, structural         |
+Features:
+- **Differentiable Simulation**: Entirely implemented using PyTorch tensor operations.
+- **Physics-Guided Rendering**: Based on reflection/transmission coefficients and time-of-flight.
+- **Artifact Modeling**: Adds speckle noise and depth-dependent degradation.
+- **Evaluation Ready**: Compatible with paired MRI/ultrasound datasets like [ReMIND](https://www.cancerimagingarchive.net/collection/remind/).
 
-Each file is a **3D matrix of size `256×256×256`** representing the brain volume in 3D space, with **0.5 mm voxel spacing**.
+## Repository Structure
 
-## 
+```
 
-About the contents of the github: as this project is still ongoing, the files are a little bit rough aruond the edges. Interesting files in notebooks and src include:
+├── data/                  # One MRI and one iUS example
+├── figs/                  # Visualizations used in the paper
+├── notebooks/             # Example usage
+├── src/                   # Core implementation
+├── LICENSE
+├── README.md
+├── requirements.txt       # Required Python packages
 
-notebooks:
-- [DEMO] REUBEN DATA * : rendering of our ray propagation model through RemindReg datasets (these are result files)
-- [DEMO] Modeling Choices : demo of our ray propagation model
-- [DEMO] Train MRI to Impedance MLP - GPU: simple MLP to try and backprop to the correct MRI -> Acoustic Impedance function.
+````
 
-src:
-- renderer.py: main logic file. The plot_beam_frame function is the one responsible for the rendering.
-- cone.py / utils.py: utility files with little useful functions
+## Getting Started
 
-## Additional Documentation
+### 1. Install dependencies
+```bash
+conda create -n diffus python=3.10
+conda activate diffus
+pip install -r requirements.txt
+````
 
-- [Blog Post](blogpost.md): Overview of the project's motivation, challenges, and future directions.
-- [Forward Physics](forward_physics.md): Detailed explanation of the forward modeling approach used in this project.
-- [Ultrasound Physics](USphysics.md): In-depth discussion of the acoustic physics principles underlying the simulation.
+### 2. Prepare volumetric data
 
-## Useful Resources
+Prepare MRI volumes in NIfTI (`.nii.gz`) format. See `notebooks/convert_to_impedance.ipynb` for impedance mapping.
 
-- [**Preoperative-to-Intraoperative Brain Image Registration Paper**](https://scholar.google.com/citations?view_op=view_citation&hl=fr&user=xdECLMkAAAAJ&citation_for_view=xdECLMkAAAAJ:7PzlFSSx8tAC):  
-  Reuben Dorent's paper introduces the ReMIND2Reg dataset and benchmarks for brain image registration between MRI and intra-operative ultrasound.
+### 3. Render ultrasound
 
-- [**ReMIND Dataset on The Cancer Imaging Archive (TCIA)**](https://www.cancerimagingarchive.net/collection/remind/):  
-  Official data collection page for ReMIND, containing pre- and intra-operative brain tumor imaging from 114 patients.
+Run the rendering notebook `python notebooks/render_slice.ipynb` specifying the path of your input.
 
-- [**ReMIND2Reg 2024 Zenodo Release**](https://zenodo.org/records/12700312):  
-  Download page for the 2024 version of the ReMIND2Reg dataset, including training and validation data in NIfTI format.
+## Results
 
-- [**DiffDRR Visualization Code**](https://github.com/eigenvivek/DiffDRR/blob/main/diffdrr/visualization.py):  
-Vivek Gopalakrishnan's python script from the DiffDRR repo that handles rendering and visualization of differentiable X-ray projections, which can be adapted for ultrasound simulation. --> More on [his personal website](https://vivekg.dev/).
+We evaluate DiffUS on the [ReMIND dataset](https://www.cancerimagingarchive.net/collections/research/research-remind/), demonstrating anatomically faithful ultrasound images from MRI data. DiffUS recovers fine structures like ventricles and sulci and supports fast rendering (1–2 seconds per slice on GPU).
+
+<p align="center">
+  <img src="figs/US_rendered.png" alt="Qualitative Comparison" width="800"/>
+</p>
+
+<!-- ## Citation
+
+If you use DiffUS in your work, please cite our paper:
+
+```bibtex
+@inproceedings{bertramo2025diffus,
+  title     = {DiffUS: Differentiable Ultrasound Rendering from Volumetric Imaging},
+  author    = {Noe Bertramo and Gabriel Duguey and Vivek Gopalakrishnan},
+  booktitle = {Medical Image Computing and Computer-Assisted Intervention (MICCAI)},
+  year      = {2025},
+  note      = {To appear}
+}
+``` -->
+
+## Acknowledgments
+
+We thank Polina Golland, Reuben Dorent, Sandy Wells, and Karimi Davood for their valuable insights on ultrasound imaging and MRI data alignment.
