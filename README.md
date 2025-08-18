@@ -52,11 +52,11 @@ pip install -r requirements.txt
 
 ### 2. Prepare volumetric data
 
-Prepare MRI volumes in NIfTI (`.nii.gz`) format. See `notebooks/convert_to_impedance.ipynb` for impedance mapping.
+Prepare MRI volumes in NIfTI (`.nii.gz`) format. See [`notebooks/convert_to_impedance.ipynb`](notebooks/convert_to_impedance.ipynb) for impedance mapping.
 
 ### 3. Render ultrasound
 
-Run the rendering notebook `python notebooks/render_slice.ipynb` specifying the path of your input.
+Run the rendering notebook [`notebooks/render_slice.ipynb`](notebooks/render_slice.ipynb) specifying the path of your input.
 
 ## Results
 
