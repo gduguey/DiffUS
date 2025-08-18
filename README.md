@@ -1,6 +1,6 @@
 # DiffUS: Differentiable Ultrasound Rendering from Volumetric Imaging
 
-[![Paper](https://img.shields.io/badge/paper-MICCAI%202025-blue)]([https://github.com/gduguey/DiffUS](https://arxiv.org/abs/2508.06768))
+[![Paper](https://img.shields.io/badge/paper-MICCAI%202025-blue)](https://arxiv.org/abs/2508.06768)
 [![arXiv](https://img.shields.io/badge/arXiv-2508.06768-b31b1b.svg)](https://arxiv.org/abs/2508.06768)
 [![License](https://img.shields.io/github/license/gduguey/DiffUS)](LICENSE)
 
