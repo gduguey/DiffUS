@@ -4,7 +4,7 @@
 [![arXiv](https://img.shields.io/badge/arXiv-2508.06768-b31b1b.svg)](https://arxiv.org/abs/2508.06768)
 [![License](https://img.shields.io/github/license/gduguey/DiffUS)](LICENSE)
 
-This repository contains the implementation of **DiffUS**, a physics-based, differentiable ultrasound renderer that generates realistic B-mode images from volumetric medical imaging data (MRI). DiffUS models acoustic wave propagation using coupled reflection-transmission equations and forms B-mode ultrasound images through a depth-resolved echo extraction procedure. It is fully implemented in PyTorch and supports gradient-based optimization for downstream tasks like image registration and reconstruction.
+This repository contains the implementation of **[DiffUS](https://link.springer.com/chapter/10.1007/978-3-032-06329-8_3)**, a physics-based, differentiable ultrasound renderer that generates realistic B-mode images from volumetric medical imaging data (MRI). DiffUS models acoustic wave propagation using coupled reflection-transmission equations and forms B-mode ultrasound images through a depth-resolved echo extraction procedure. It is fully implemented in PyTorch and supports gradient-based optimization for downstream tasks like image registration and reconstruction.
 
 <p align="center">
   <img src="figs/pipeline_zoom.png" alt="DiffUS Pipeline Overview" width="700" style="box-shadow: 0 4px 10px rgba(0,0,0,0.2); border-radius:6px;">
